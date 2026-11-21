@@ -72,30 +72,7 @@
             display: none;
         }
     </style>
-<script>
-const RICHTIGES_PASSWORT = "INreoa#wbgzh🏠";
-const STORAGE_KEY = "auth_ok";
-const ZIEL_SEITE = "home.html"; // ggf. zu "index.html" ändern
 
-// Sofort beim Laden prüfen, ob bereits eingeloggt
-if (localStorage.getItem(STORAGE_KEY) === "true") {
-    window.location.replace(ZIEL_SEITE);
-}
-
-document.getElementById("loginForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    const eingabe = document.getElementById("passwordInput").value;
-    const errorMsg = document.getElementById("errorMessage");
-
-    if (eingabe === RICHTIGES_PASSWORT) {
-        localStorage.setItem(STORAGE_KEY, "true");
-        window.location.href = ZIEL_SEITE;
-    } else {
-        errorMsg.style.display = "block";
-        document.getElementById("passwordInput").value = "";
-    }
-});
-</script>
 </head>
 <body>
     <div class="login-box">
@@ -123,5 +100,29 @@ document.getElementById("loginForm").addEventListener("submit", function (e) {
             }
         });
     </script>
+<script>
+const RICHTIGES_PASSWORT = "INreoa#wbgzh🏠";
+const STORAGE_KEY = "auth_ok";
+const ZIEL_SEITE = "home.html"; // ggf. zu "index.html" ändern
+
+// Sofort beim Laden prüfen, ob bereits eingeloggt
+if (localStorage.getItem(STORAGE_KEY) === "true") {
+    window.location.replace(ZIEL_SEITE);
+}
+
+document.getElementById("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const eingabe = document.getElementById("passwordInput").value;
+    const errorMsg = document.getElementById("errorMessage");
+
+    if (eingabe === RICHTIGES_PASSWORT) {
+        localStorage.setItem(STORAGE_KEY, "true");
+        window.location.href = ZIEL_SEITE;
+    } else {
+        errorMsg.style.display = "block";
+        document.getElementById("passwordInput").value = "";
+    }
+});
+</script>
 </body>
 </html>
