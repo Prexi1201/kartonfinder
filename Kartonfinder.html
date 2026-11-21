@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kartonfinder</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #eceff2;
+  --surface: #ffffff;
+  --surface-2: #f4f6f8;
+  --ink: #1b2128;
+  --muted: #566170;
+  --line: #d8dde3;
+  --accent: #8f5d22;
+  --on-accent: #ffffff;
+  --accent-soft: #f2e5d2;
+  --ok: #17775a;
+  --ok-soft: #dcf1e8;
+  --danger: #b3261e;
+  --danger-soft: #fbe3e1;
+  --focus: #2b6cb0;
+  --box-top: #ecd3ac;
+  --box-left: #cfa56d;
+  --box-right: #b98a4f;
+  --box-line: #6d4a1f;
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101317;
+    --surface: #181c21;
+    --surface-2: #1f242b;
+    --ink: #e8ecf0;
+    --muted: #9aa5b1;
+    --line: #2b323a;
+    --accent: #d89c52;
+    --on-accent: #1b1308;
+    --accent-soft: #2d2316;
+    --ok: #4cc29b;
+    --ok-soft: #14302a;
+    --danger: #ff8a80;
+    --danger-soft: #3a1c1a;
+    --focus: #7ab4f0;
+    --box-top: #7a5e38;
+    --box-left: #5e4624;
+    --box-right: #483618;
+    --box-line: #e0b274;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101317;
+  --surface: #181c21;
+  --surface-2: #1f242b;
+  --ink: #e8ecf0;
+  --muted: #9aa5b1;
+  --line: #2b323a;
+  --accent: #d89c52;
+  --on-accent: #1b1308;
+  --accent-soft: #2d2316;
+  --ok: #4cc29b;
+  --ok-soft: #14302a;
+  --danger: #ff8a80;
+  --danger-soft: #3a1c1a;
+  --focus: #7ab4f0;
+  --box-top: #7a5e38;
+  --box-left: #5e4624;
+  --box-right: #483618;
+  --box-line: #e0b274;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden]:not([hidden="until-found"]) { display: none !important; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+h2 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Kopf & Speicherleiste */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; margin-bottom: 16px; }
+.top .lead { color: var(--muted); margin-top: 6px; max-width: 46ch; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; display: flex; align-items: baseline; gap: 8px; }
+.stat b { font-family: var(--font-mono); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 0.82rem; }
+
+.filebar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 20px;
+}
+.filebar.connected { border-color: var(--ok); background: var(--ok-soft); }
+.filebar-info { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.filebar.connected .dot { background: var(--ok); }
+
+/* Raster */
+.layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; min-width: 0; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.panel-head .sub { color: var(--muted); font-size: 0.88rem; margin-top: 2px; }
+.finder { border-top: 3px solid var(--accent); }
+
+/* Formulare */
+.dims-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 420px) { .row2 { grid-template-columns: minmax(0, 1fr); } }
+label.f { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.in { position: relative; display: block; }
+.in input, .in select, textarea {
+  width: 100%; min-width: 0; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 12px; color: var(--ink); font-weight: 500;
+}
+.in input.num { font-family: var(--font-mono); padding-right: 38px; font-variant-numeric: tabular-nums; }
+.in .unit { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); font-size: 0.78rem; color: var(--muted); pointer-events: none; font-weight: 500; }
+textarea { resize: vertical; min-height: 64px; font-weight: 400; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; font-weight: 400; }
+.in input:focus, textarea:focus, .in select:focus { border-color: var(--accent); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; cursor: pointer; margin-top: 14px; }
+.check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.check small { display: block; color: var(--muted); font-size: 0.8rem; }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.form-err { color: var(--danger); font-size: 0.86rem; min-height: 1.2em; }
+
+/* Buttons */
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.sm { padding: 5px 10px; font-size: 0.82rem; }
+.btn.danger { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Ergebnisse */
+.res-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 22px 0 10px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.res-head h3 { font-family: var(--font-display); font-size: 1rem; margin: 0; }
+.res-head span { color: var(--muted); font-size: 0.82rem; }
+.list { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.item { display: flex; align-items: center; gap: 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; flex-wrap: wrap; }
+.item.best { border-color: var(--ok); background: var(--ok-soft); }
+.item.out { opacity: 0.6; }
+.bx { width: 64px; height: 52px; flex: none; }
+.bx polygon { stroke: var(--box-line); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.bx .f-t { fill: var(--box-top); }
+.bx .f-l { fill: var(--box-left); }
+.bx .f-r { fill: var(--box-right); }
+.item .body { flex: 1; min-width: 0; }
+.item .name { font-weight: 600; overflow-wrap: anywhere; }
+.item .desc { color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; margin-top: 1px; }
+.dims { font-family: var(--font-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; color: var(--ink); display: inline-flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.dims i { font-style: normal; color: var(--muted); font-size: 0.72rem; margin-right: 2px; }
+.dims em { font-style: normal; color: var(--muted); font-size: 0.75rem; }
+.side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.badge { font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.badge.ok { background: var(--ok); color: var(--bg); }
+.badge.warn { background: var(--danger-soft); color: var(--danger); }
+.bar { width: 96px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+.fillnote { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .side { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; flex-wrap: wrap; }
+}
+
+/* Bestand */
+.toolbar { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 8px; margin: 14px 0 12px; }
+@media (max-width: 420px) { .toolbar { grid-template-columns: minmax(0, 1fr); } }
+.addform { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 8px; }
+.addform h3 { font-family: var(--font-display); font-size: 1rem; margin: 0 0 12px; }
+.qty { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.qty button { border: 0; background: none; width: 28px; height: 28px; font-size: 1rem; cursor: pointer; color: var(--ink); border-radius: 8px; }
+.qty button:hover { background: var(--surface-2); }
+.qty output { min-width: 30px; text-align: center; font-family: var(--font-mono); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.empty { text-align: center; padding: 28px 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; }
+.empty b { display: block; color: var(--ink); font-family: var(--font-display); font-size: 1.02rem; margin-bottom: 4px; }
+.empty .btn-row { justify-content: center; margin-top: 14px; }
+.note { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+.foot { margin-top: 18px; font-size: 0.8rem; color: var(--muted); }
+
+/* Lagerort und Versand */
+.extra { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding-top: 8px; border-top: 1px dashed var(--line); margin-top: 2px; }
+.loc { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 999px; overflow-wrap: anywhere; }
+.loc.none { color: var(--muted); background: transparent; border: 1px dashed var(--line); font-weight: 500; }
+.shipwrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.ship { font-size: 0.8rem; color: var(--muted); }
+.opt { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px 6px; font-size: 0.82rem; padding: 3px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-variant-numeric: tabular-nums; }
+.opt b { font-family: var(--font-mono); font-weight: 500; }
+.opt small { color: var(--muted); font-size: 0.72rem; }
+.opt em { font-style: normal; font-size: 0.7rem; font-weight: 700; color: var(--ok); }
+.opt.best { border-color: var(--ok); background: var(--ok-soft); }
+.opt.na { color: var(--muted); border-style: dashed; }
+.shipbox { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.grp { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.basis { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; font-size: 0.85rem; }
+.basis summary { cursor: pointer; font-weight: 600; }
+.basis h4 { font-family: var(--font-display); margin: 16px 0 6px; font-size: 0.92rem; }
+.tbl { overflow-x: auto; }
+.tbl table { border-collapse: collapse; width: 100%; min-width: 440px; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { text-align: left; padding: 5px 12px 5px 0; border-bottom: 1px solid var(--line); font-weight: 400; vertical-align: top; }
+.tbl th { color: var(--muted); font-size: 0.75rem; font-weight: 600; }
+.basis ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+.basis li { margin-bottom: 3px; }
+.basis a { color: var(--accent); overflow-wrap: anywhere; }
+
+/* Toast */
+.toast-wrap { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); pointer-events: none; z-index: 20; }
+.toast { background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-size: 0.88rem; font-weight: 500; max-width: 100%; opacity: 0; transform: translateY(8px); transition: opacity .18s, transform .18s; }
+.toast.on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Kartonfinder</h1>
+      <p class="lead">Kartons mit Maßen im Bestand verwalten und für jedes Produkt den passenden Versandkarton finden.</p>
+    </div>
+    <div class="stats" aria-label="Bestand in Zahlen">
+      <div class="stat"><b id="st-types">0</b><span>Kartonarten</span></div>
+      <div class="stat"><b id="st-qty">0</b><span>Stück auf Lager</span></div>
+    </div>
+  </header>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const statusEl = document.getElementById("fileStatus");
+
+  try {
+    const response = await fetch("./daten.json", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (statusEl) {
+      statusEl.textContent = "Automatisch geladen (daten.json)";
+    }
+
+    // Falls deine App auf ein Event oder eine Funktion wartet, hier anbinden:
+    window.dispatchEvent(new CustomEvent("datenGeladen", { detail: data }));
+    if (typeof window.onDatenGeladen === "function") {
+      window.onDatenGeladen(data);
+    }
+  } catch (err) {
+    console.error("Fehler beim Laden von daten.json:", err);
+    if (statusEl) {
+      statusEl.textContent = "Fehler beim Laden von daten.json";
+    }
+  }
+});
+</script>
+
+
+  <div class="layout">
+    <!-- Karton finden -->
+    <section class="panel finder" aria-labelledby="h-find">
+      <div class="panel-head">
+        <div>
+          <h2 id="h-find">Karton finden</h2>
+          <p class="sub">Maße des Produkts eingeben. Es werden Kartons gezeigt, die gleich groß oder größer sind.</p>
+        </div>
+      </div>
+      <form id="findForm" autocomplete="off" novalidate>
+        <div class="dims-grid">
+          <label class="f" for="f-h">Höhe<span class="in"><input class="num" id="f-h" inputmode="decimal" placeholder="z. B. 12"><span class="unit">cm</span></span></label>
+          <label class="f" for="f-b">Breite<span class="in"><input class="num" id="f-b" inputmode="decimal" placeholder="z. B. 28"><span class="unit">cm</span></span></label>
+          <label class="f" for="f-t">Tiefe<span class="in"><input class="num" id="f-t" inputmode="decimal" placeholder="z. B. 18"><span class="unit">cm</span></span></label>
+        </div>
+        <div class="row2" style="margin-top:10px">
+          <label class="f" for="f-pad">Polster pro Seite<span class="in"><input class="num" id="f-pad" inputmode="decimal" value="0"><span class="unit">cm</span></span></label>
+          <label class="f" for="f-kg">Gewicht des Pakets<span class="in"><input class="num" id="f-kg" inputmode="decimal" value="2"><span class="unit">kg</span></span></label>
+        </div>
+        <label class="check" for="f-rot">
+          <input type="checkbox" id="f-rot" checked>
+          <span>Produkt darf gedreht werden<small>Aus: Höhe, Breite und Tiefe müssen in genau dieser Reihenfolge in den Karton passen.</small></span>
+        </label>
+      </form>
+      <div class="shipbox" id="shipOpts">
+        <div class="grp">Versandvergleich DHL und Hermes</div>
+        <label class="f" for="f-stand">DHL-Preisstand<span class="in"><select id="f-stand"><option value="now">Aktuell (bis 31.12.2026)</option><option value="next">Ab 1.1.2027 (vorbehaltlich Genehmigung)</option></select></span></label>
+        <label class="check" for="f-shop" style="margin-top:0"><input type="checkbox" id="f-shop"><span>Hermes: Zustellung an einen PaketShop einrechnen<small>Günstiger, der Empfänger holt das Paket dort ab. Aus: Zustellung an die Haustür.</small></span></label>
+        <p class="note" style="margin:0">Die Versandpreise in den Treffern und im Bestand gelten für das Gewicht oben und die Außenmaße des Kartons.</p>
+      </div>
+      <div class="res-head"><h3 id="res-title">Passende Kartons</h3><span id="res-count"></span></div>
+      <div id="results" aria-live="polite"></div>
+    </section>
+
+    <!-- Bestand -->
+    <section class="panel" aria-labelledby="h-stock">
+      <div class="panel-head">
+        <div>
+          <h2 id="h-stock">Bestand</h2>
+          <p class="sub">Alle Kartons mit Maßen in Zentimetern.</p>
+        </div>
+        <button type="button" class="btn primary" id="btnAdd">+ Karton hinzufügen</button>
+      </div>
+
+      <form id="addForm" class="addform" autocomplete="off" novalidate hidden>
+        <h3 id="addTitle">Neuer Karton</h3>
+        <div class="stack">
+          <label class="f" for="a-name">Bezeichnung (optional)<span class="in"><input id="a-name" maxlength="80" placeholder="z. B. Standardkarton M"></span></label>
+          <label class="f" for="a-loc">Lagerort (optional)<span class="in"><input id="a-loc" maxlength="80" list="loc-list" placeholder="z. B. Regal B, Fach 3"></span></label>
+          <datalist id="loc-list"></datalist>
+          <div class="dims-grid">
+            <label class="f" for="a-h">Höhe<span class="in"><input class="num" id="a-h" inputmode="decimal"><span class="unit">cm</span></span></label>
+            <label class="f" for="a-b">Breite<span class="in"><input class="num" id="a-b" inputmode="decimal"><span class="unit">cm</span></span></label>
+            <label class="f" for="a-t">Tiefe<span class="in"><input class="num" id="a-t" inputmode="decimal"><span class="unit">cm</span></span></label>
+          </div>
+          <div class="row2">
+            <label class="f" for="a-qty">Anzahl auf Lager<span class="in"><input class="num" id="a-qty" inputmode="numeric" value="1" style="padding-right:12px"></span></label>
+          </div>
+          <label class="f" for="a-desc">Beschreibung (optional)<textarea id="a-desc" maxlength="300" placeholder="z. B. doppelwellig, für Bücher und Kleidung"></textarea></label>
+          <div class="form-err" id="formErr" role="alert"></div>
+          <div class="btn-row">
+            <button type="submit" class="btn primary" id="btnSave">Speichern</button>
+            <button type="button" class="btn" id="btnCancel">Schließen</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="toolbar">
+        <span class="in"><input id="s-q" type="search" placeholder="Bestand durchsuchen" aria-label="Bestand durchsuchen"></span>
+        <span class="in">
+          <select id="s-sort" aria-label="Sortierung">
+            <option value="new">Zuletzt hinzugefügt</option>
+            <option value="name">Name A bis Z</option>
+            <option value="vol-asc">Klein nach groß</option>
+            <option value="vol-desc">Groß nach klein</option>
+          </select>
+        </span>
+      </div>
+      <div id="stock"></div>
+      <p class="note" id="loadNote" role="status"></p>
+    </section>
+  </div>
+  <p class="foot" id="storeNote"></p>
+  <details class="basis"><summary>Preisgrundlage und Quellen</summary><div id="basisBody"></div></details>
+</div>
+<div class="toast-wrap"><div class="toast" id="toast" role="status"></div></div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var LS_KEY = "kartonfinder-v1";
+  var items = [];
+  var loaded = false;
+  var fileHandle = null;
+  var writeQueue = Promise.resolve();
+  var editingId = null;
+  var pendingDelete = null;
+  var pendingTimer = null;
+
+  /* ---------- Helfer ---------- */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function fmt(n) { return Number(n).toLocaleString("de-DE", { maximumFractionDigits: 1 }); }
+  function num(v) {
+    var n = parseFloat(String(v).trim().replace(",", "."));
+    return isFinite(n) ? n : NaN;
+  }
+  function vol(it) { return it.h * it.b * it.t; }
+  function title(it) { return it.name || ("Karton " + fmt(it.h) + " × " + fmt(it.b) + " × " + fmt(it.t)); }
+  function genId() { return "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function toast(msg) {
+    var el = $("#toast");
+    el.textContent = msg;
+    el.classList.add("on");
+    clearTimeout(toast.t);
+    toast.t = setTimeout(function () { el.classList.remove("on"); }, 2600);
+  }
+  function dimsHtml(h, b, t) {
+    return '<span class="dims"><span><i>H</i>' + fmt(h) + '</span><span><i>B</i>' + fmt(b) + '</span><span><i>T</i>' + fmt(t) + '</span><em>cm</em></span>';
+  }
+
+  /* Isometrische Mini-Zeichnung im Verhältnis der Maße */
+  function boxSvg(h, b, t) {
+    var c = Math.cos(Math.PI / 6), s = 0.5;
+    function P(u, v, z) { return [(u - v) * c, (u + v) * s - z]; }
+    var w = b, d = t;
+    var p = { A: P(0, 0, h), B: P(w, 0, h), C: P(w, d, h), D: P(0, d, h), C0: P(w, d, 0), D0: P(0, d, 0), B0: P(w, 0, 0) };
+    var xs = [], ys = [], k;
+    for (k in p) { xs.push(p[k][0]); ys.push(p[k][1]); }
+    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+    var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+    var W = (maxX - minX) || 1, H = (maxY - minY) || 1, m = Math.max(W, H) * 0.06;
+    var vb = (minX - m).toFixed(2) + " " + (minY - m).toFixed(2) + " " + (W + 2 * m).toFixed(2) + " " + (H + 2 * m).toFixed(2);
+    function poly(cls, keys) {
+      return '<polygon class="' + cls + '" points="' + keys.map(function (q) { return p[q][0].toFixed(2) + "," + p[q][1].toFixed(2); }).join(" ") + '"/>';
+    }
+    return '<svg class="bx" viewBox="' + vb + '" aria-hidden="true">' +
+      poly("f-l", ["D", "C", "C0", "D0"]) + poly("f-r", ["B", "C", "C0", "B0"]) + poly("f-t", ["A", "B", "C", "D"]) + "</svg>";
+  }
+
+  /* ---------- Versand ---------- */
+  var DHL = {
+    now: { label: "Preise bis 31.12.2026", rows: [
+      ["Päckchen S", [35, 25, 10], 2, 4.19, false, "ohne Sendungsverfolgung"],
+      ["Päckchen M", [60, 30, 15], 2, 5.19, false, "ohne Sendungsverfolgung"],
+      ["Paket bis 2 kg", [60, 30, 15], 2, 6.19, false, ""],
+      ["Paket bis 5 kg", [120, 60, 60], 5, 7.69, true, ""],
+      ["Paket bis 10 kg", [120, 60, 60], 10, 10.49, true, ""],
+      ["Paket bis 20 kg", [120, 60, 60], 20, 18.99, true, ""],
+      ["Paket bis 31,5 kg", [120, 60, 60], 31.5, 23.99, false, ""]
+    ] },
+    next: { label: "Preise ab 01.01.2027", rows: [
+      ["Päckchen S", [35, 25, 5], 1, 4.49, false, "mit Sendungsverfolgung"],
+      ["Päckchen M", [60, 30, 15], 1, 5.19, false, "mit Sendungsverfolgung"],
+      ["Paket bis 2 kg", [60, 30, 15], 2, 6.19, false, ""],
+      ["Paket bis 5 kg", [120, 60, 60], 5, 7.69, true, ""],
+      ["Paket bis 10 kg", [120, 60, 60], 10, 11.49, true, ""],
+      ["Paket bis 20 kg", [120, 60, 60], 20, 19.99, true, ""],
+      ["Paket bis 31,5 kg", [120, 60, 60], 31.5, 24.99, false, ""]
+    ] }
+  };
+  var HERMES = [
+    ["Päckchen", 37, 3.99, 5.19, null],
+    ["S-Paket", 50, 4.89, 5.79, null],
+    ["M-Paket", 80, 5.90, 6.99, null],
+    ["L-Paket", 120, 9.90, 10.99, null],
+    ["XL-Paket", 150, null, null, 28.99],
+    ["XXL-Paket", 200, null, null, 33.99]
+  ];
+  function eur(n) { return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €"; }
+  function setStandDefault() { $("#f-stand").value = new Date() >= new Date(2027, 0, 1) ? "next" : "now"; }
+  function shipSettings() {
+    var kg = num($("#f-kg").value);
+    return { stand: $("#f-stand").value || "now", kg: kg > 0 ? kg : 0, shop: $("#f-shop").checked };
+  }
+  function dhlBest(d, kg, stand) {
+    var s = d.slice().sort(function (x, y) { return y - x; }), best = null;
+    DHL[stand].rows.forEach(function (r) {
+      var mx = r[1];
+      if (kg > r[2] + 1e-9) return;
+      if (s[0] > mx[0] || s[1] > mx[1] || s[2] > mx[2]) return;
+      if (r[4] && s[0] + 2 * s[1] + 2 * s[2] > 300) return;
+      if (!best || r[3] < best.price) best = { price: r[3], name: r[0], note: r[5] };
+    });
+    return best;
+  }
+  function hermesBest(d, kg, shop) {
+    var s = d.slice().sort(function (x, y) { return y - x; });
+    var sum = s[0] + s[2];
+    if (kg > 25) return null;
+    for (var i = 0; i < HERMES.length; i++) {
+      var c = HERMES[i];
+      if (sum <= c[1] + 1e-9) {
+        var price = c[3], how = "Haustür";
+        if (shop && c[2] != null) { price = c[2]; how = "PaketShop"; }
+        if (price == null) { price = c[4]; how = "Abholung"; }
+        return { price: price, name: c[0], note: how };
+      }
+    }
+    return null;
+  }
+  function shipHtml(it) {
+    var s = shipSettings();
+    if (!(s.kg > 0)) return '<span class="ship">Versandpreis: bitte Gewicht eingeben</span>';
+    var d = [it.h, it.b, it.t];
+    var a = dhlBest(d, s.kg, s.stand), b = hermesBest(d, s.kg, s.shop);
+    if (!a && !b) return '<span class="ship">Kein Versand möglich: Maße oder Gewicht zu groß</span>';
+    function opt(name, r, best) {
+      if (!r) return '<span class="opt na">' + name + ': nicht möglich</span>';
+      return '<span class="opt' + (best ? " best" : "") + '">' + (best ? "<em>Günstigster</em> " : "") + name + " <b>" + eur(r.price) + "</b><small>" +
+        esc(r.name) + (r.note ? " · " + esc(r.note) : "") + "</small></span>";
+    }
+    var aBest = a && (!b || a.price <= b.price + 1e-9);
+    var bBest = b && (!a || b.price <= a.price + 1e-9);
+    return opt("DHL", a, aBest) + opt("Hermes", b, bBest);
+  }
+  function locHtml(it) {
+    var pin = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M8 1.5A4.5 4.5 0 0 0 3.5 6c0 3.2 4.5 8.5 4.5 8.5S12.5 9.2 12.5 6A4.5 4.5 0 0 0 8 1.5Zm0 6.2a1.7 1.7 0 1 1 0-3.4 1.7 1.7 0 0 1 0 3.4Z"/></svg>';
+    return it.loc ? '<span class="loc" title="Lagerort">' + pin + esc(it.loc) + "</span>" : '<span class="loc none">Lagerort nicht angegeben</span>';
+  }
+  function extraHtml(it) { return '<div class="extra">' + locHtml(it) + '<div class="shipwrap">' + shipHtml(it) + "</div></div>"; }
+  function renderLocs() {
+    var set = {};
+    items.forEach(function (x) { if (x.loc) set[x.loc] = 1; });
+    $("#loc-list").innerHTML = Object.keys(set).sort().map(function (l) { return '<option value="' + esc(l) + '">'; }).join("");
+  }
+  function renderBasis() {
+    var st = $("#f-stand").value || "now", d = DHL[st];
+    var dRows = d.rows.map(function (r) {
+      return "<tr><td>" + r[0] + "</td><td>" + r[1].join(" × ") + " cm" + (r[4] ? ", Gurtmaß bis 300 cm" : "") + "</td><td>" + fmt(r[2]) + " kg</td><td>" + eur(r[3]) + "</td></tr>";
+    }).join("");
+    var hRows = HERMES.map(function (c) {
+      return "<tr><td>" + c[0] + "</td><td>längste + kürzeste Seite bis " + c[1] + " cm</td><td>" + (c[2] != null ? eur(c[2]) : "–") + "</td><td>" + (c[3] != null ? eur(c[3]) : "–") + "</td><td>" + (c[4] != null ? eur(c[4]) : "–") + "</td></tr>";
+    }).join("");
+    function a(u, t) { return '<li><a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + "</a></li>"; }
+    $("#basisBody").innerHTML =
+      "<h4>DHL (" + d.label + ")</h4><div class=\"tbl\"><table><thead><tr><th>Produkt</th><th>Höchstmaße</th><th>Gewicht</th><th>Preis</th></tr></thead><tbody>" + dRows + "</tbody></table></div>" +
+      "<h4>Hermes (Stand März 2026)</h4><div class=\"tbl\"><table><thead><tr><th>Klasse</th><th>Größe</th><th>PaketShop</th><th>Haustür</th><th>Abholung</th></tr></thead><tbody>" + hRows + "</tbody></table></div>" +
+      "<h4>Hinweise</h4><ul>" +
+      "<li>Privatkunden, Inland, online frankiert. Recherchiert am 20.11.2026. Vor dem Versand bitte im Preisrechner der Anbieter prüfen.</li>" +
+      "<li>DHL-Preise ab 01.01.2027 stehen unter dem Vorbehalt der Genehmigung durch die Bundesnetzagentur.</li>" +
+      "<li>Hermes-Preise für 2027 sind noch nicht bekannt, es gelten die heutigen. Hermes M und L sind seit April 2025 unverändert.</li>" +
+      "<li>Hermes XL und XXL gibt es nur mit Abholung. Diese Preise stammen aus nur einer Quelle (Paketda) und sind nicht bei Hermes gegengeprüft.</li>" +
+      "<li>Hermes wird nur bis 25 kg verglichen. Darüber ist Abholung nötig, diese Preise sind hier nicht hinterlegt.</li>" +
+      "<li>Maße gelten als Außenmaße des gepackten Kartons und dürfen gedreht werden.</li></ul>" +
+      "<h4>Quellen</h4><ul>" +
+      a("https://www.dhl.de/de/privatkunden/pakete-versenden/deutschlandweit-versenden/preise-national.html", "DHL: Preise und Formate national") +
+      a("https://www.deutschepost.de/de/a/aenderungen2027.html", "Deutsche Post: Änderungen 2027") +
+      a("https://www.paketda.de/frankieren/hermes-porto.html", "Paketda: Hermes Porto, Stand 01.03.2026") +
+      a("https://www.t-online.de/leben/aktuelles/id_101078542/paketpreise-steigen-hermes-kuendigt-erhoehung-fuer-2026-an.html", "t-online: Hermes erhöht Preise ab März 2026") +
+      a("https://www.mydealz.de/magazin/hermes-preiserhoehung-ab-april-2025-das-muesst-ihr-jetzt-wissen-26744", "mydealz: Hermes Preiserhöhung April 2025") + "</ul>";
+  }
+
+  /* ---------- Speicher (Fritzbox JSON + Fallback LocalStorage) ---------- */
+  function persistAll() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(items)); } catch (e) {}
+    if (!fileHandle) return Promise.resolve();
+
+    writeQueue = writeQueue.then(async function () {
+      try {
+        var writable = await fileHandle.createWritable();
+        await writable.write(JSON.stringify(items, null, 2));
+        await writable.close();
+        $("#fileStatus").innerHTML = "Verbunden mit <b>" + esc(fileHandle.name) + "</b> · Gespeichert (" + new Date().toLocaleTimeString("de-DE") + ")";
+      } catch (err) {
+        console.error(err);
+        toast("Fehler beim Schreiben auf den Fritzbox-Stick!");
+        $("#fileStatus").innerHTML = "⚠️ Schreibfehler bei <b>" + esc(fileHandle.name) + "</b> – Bitte neu verbinden";
+        $("#fileBar").classList.remove("connected");
+      }
+    });
+    return writeQueue;
+  }
+
+  async function connectJsonFile() {
+    if (!window.showOpenFilePicker) {
+      alert("Dein Browser unterstützt die File System Access API nicht. Bitte nutze Chrome, Edge, Brave oder Opera.");
+      return;
+    }
+    try {
+      var handles = await window.showOpenFilePicker({
+        types: [{ description: "JSON-Datei", accept: { "application/json": [".json"] } }]
+      });
+      fileHandle = handles[0];
+      var file = await fileHandle.getFile();
+      var text = (await file.text()).trim();
+      var parsed = text ? JSON.parse(text) : [];
+      if (!Array.isArray(parsed)) throw new Error("Kein gültiges JSON-Array");
+
+      items = parsed;
+      try { localStorage.setItem(LS_KEY, JSON.stringify(items)); } catch (e) {}
+      $("#fileBar").classList.add("connected");
+      $("#fileStatus").innerHTML = "Verbunden mit <b>" + esc(fileHandle.name) + "</b> (Fritzbox-Speicher aktiv)";
+      $("#btnConnectFile").textContent = "🔄 Andere Datei wählen";
+      $("#storeNote").textContent = "Änderungen werden direkt in deine ausgewählte JSON-Datei auf dem Fritzbox-Stick geschrieben.";
+      renderAll();
+      toast("Datei erfolgreich verbunden!");
+    } catch (err) {
+      if (err && err.name !== "AbortError") {
+        console.error(err);
+        toast("Datei konnte nicht gelesen werden. Steht [] drin?");
+      }
+    }
+  }
+
+  $("#btnConnectFile").addEventListener("click", connectJsonFile);
+
+  function saveItem(it) {
+    var i = items.findIndex(function (x) { return x.id === it.id; });
+    if (i >= 0) items[i] = it; else items.push(it);
+    renderAll();
+    return persistAll();
+  }
+  function setQty(id, q) {
+    q = Math.max(0, Math.min(99999, q));
+    items.forEach(function (x) { if (x.id === id) x.qty = q; });
+    renderAll();
+    return persistAll();
+  }
+  function removeItem(id) {
+    items = items.filter(function (x) { return x.id !== id; });
+    renderAll();
+    return persistAll();
+  }
+  function initStore() {
+    try { items = JSON.parse(localStorage.getItem(LS_KEY) || "[]") || []; } catch (e) { items = []; }
+    loaded = true;
+    $("#storeNote").textContent = "Tipp: Klicke oben auf „daten.json verbinden“, damit dein Bestand direkt auf dem Fritzbox-Stick gespeichert wird.";
+    renderAll();
+  }
+
+  /* ---------- Suche ---------- */
+  function readFind() {
+    var h = num($("#f-h").value), b = num($("#f-b").value), t = num($("#f-t").value);
+    var pad = num($("#f-pad").value); if (!(pad >= 0)) pad = 0;
+    return { h: h, b: b, t: t, pad: pad, rot: $("#f-rot").checked, valid: h > 0 && b > 0 && t > 0 };
+  }
+  function findMatches(q) {
+    var need = [q.h + 2 * q.pad, q.b + 2 * q.pad, q.t + 2 * q.pad];
+    var needS = q.rot ? need.slice().sort(function (x, y) { return y - x; }) : need;
+    var needVol = need[0] * need[1] * need[2];
+    var out = [];
+    items.forEach(function (it) {
+      var box = [it.h, it.b, it.t];
+      var boxS = q.rot ? box.slice().sort(function (x, y) { return y - x; }) : box;
+      var ok = boxS.every(function (v, i) { return v + 1e-9 >= needS[i]; });
+      if (!ok) return;
+      var exact = boxS.every(function (v, i) { return Math.abs(v - needS[i]) < 1e-9; });
+      out.push({ it: it, exact: exact, fill: Math.min(100, needVol / vol(it) * 100) });
+    });
+    out.sort(function (a, b) {
+      var ao = a.it.qty > 0 ? 0 : 1, bo = b.it.qty > 0 ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      return vol(a.it) - vol(b.it);
+    });
+    return out;
+  }
+  function renderResults() {
+    var q = readFind(), el = $("#results"), count = $("#res-count");
+    if (!q.valid) {
+      count.textContent = "";
+      el.innerHTML = '<div class="empty"><b>Maße eingeben</b>Trage Höhe, Breite und Tiefe des Produkts in Zentimetern ein, dann erscheinen hier die passenden Kartons.</div>';
+      return;
+    }
+    if (!loaded) { el.innerHTML = '<div class="empty">Bestand wird geladen …</div>'; return; }
+    if (!items.length) {
+      count.textContent = "";
+      el.innerHTML = '<div class="empty"><b>Noch keine Kartons im Bestand</b>Lege rechts Kartons an, dann kann gesucht werden.</div>';
+      return;
+    }
+    var res = findMatches(q);
+    count.textContent = res.length === 1 ? "1 Treffer" : res.length + " Treffer";
+    if (!res.length) {
+      var big = items.slice().sort(function (a, b) { return vol(b) - vol(a); })[0];
+      el.innerHTML = '<div class="empty"><b>Kein Karton groß genug</b>Gesucht: ' + dimsHtml(q.h + 2 * q.pad, q.b + 2 * q.pad, q.t + 2 * q.pad) +
+        '<br>Der größte Karton im Bestand: ' + dimsHtml(big.h, big.b, big.t) + '</div>';
+      return;
+    }
+    var bestSet = false;
+    el.innerHTML = '<ul class="list">' + res.map(function (r) {
+      var it = r.it, isBest = false;
+      if (!bestSet && it.qty > 0) { isBest = true; bestSet = true; }
+      var badges = "";
+      if (isBest) badges += '<span class="badge ok">Beste Wahl</span>';
+      if (r.exact) badges += '<span class="badge">Passt genau</span>';
+      if (!(it.qty > 0)) badges += '<span class="badge warn">Nicht auf Lager</span>';
+      else badges += '<span class="fillnote">' + fmt(it.qty) + ' auf Lager</span>';
+      return '<li class="item' + (isBest ? " best" : "") + (it.qty > 0 ? "" : " out") + '">' + boxSvg(it.h, it.b, it.t) +
+        '<div class="body"><div class="name">' + esc(title(it)) + '</div>' + dimsHtml(it.h, it.b, it.t) +
+        (it.desc ? '<div class="desc">' + esc(it.desc) + '</div>' : "") + '</div>' +
+        '<div class="side">' + badges +
+        '<div class="bar" title="Auslastung"><i style="width:' + r.fill.toFixed(0) + '%"></i></div>' +
+        '<span class="fillnote">Auslastung ' + r.fill.toFixed(0) + ' %</span></div>' + extraHtml(it) + '</li>';
+    }).join("") + "</ul>";
+  }
+
+  /* ---------- Bestand ---------- */
+  function renderStats() {
+    $("#st-types").textContent = items.length;
+    $("#st-qty").textContent = items.reduce(function (s, x) { return s + (x.qty > 0 ? x.qty : 0); }, 0).toLocaleString("de-DE");
+  }
+  function renderStock() {
+    var el = $("#stock");
+    if (!loaded) { el.innerHTML = '<div class="empty">Bestand wird geladen …</div>'; return; }
+    if (!items.length) {
+      el.innerHTML = '<div class="empty"><b>Noch keine Kartons im Bestand</b>Lege deinen ersten Karton an oder lade Beispiele, um die Suche auszuprobieren.' +
+        '<div class="btn-row"><button type="button" class="btn primary" data-action="open-add">Ersten Karton anlegen</button>' +
+        '<button type="button" class="btn" data-action="samples">Beispiel-Kartons laden</button></div></div>';
+      return;
+    }
+    var q = $("#s-q").value.trim().toLowerCase();
+    var list = items.filter(function (it) {
+      if (!q) return true;
+      var hay = (title(it) + " " + (it.desc || "") + " " + (it.loc || "") + " " + it.h + " " + it.b + " " + it.t).toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+    var sort = $("#s-sort").value;
+    list.sort(function (a, b) {
+      if (sort === "name") return title(a).localeCompare(title(b), "de");
+      if (sort === "vol-asc") return vol(a) - vol(b);
+      if (sort === "vol-desc") return vol(b) - vol(a);
+      return (b.created || 0) - (a.created || 0);
+    });
+    if (!list.length) { el.innerHTML = '<div class="empty">Kein Karton passt zur Suche.</div>'; return; }
+    el.innerHTML = '<ul class="list">' + list.map(function (it) {
+      var del = pendingDelete === it.id;
+      return '<li class="item' + (it.qty > 0 ? "" : " out") + '" data-id="' + esc(it.id) + '">' + boxSvg(it.h, it.b, it.t) +
+        '<div class="body"><div class="name">' + esc(title(it)) + '</div>' + dimsHtml(it.h, it.b, it.t) +
+        (it.desc ? '<div class="desc">' + esc(it.desc) + '</div>' : "") + '</div>' +
+        '<div class="side"><div class="qty"><button type="button" data-action="dec" aria-label="Anzahl verringern">−</button><output aria-label="Anzahl">' + fmt(it.qty || 0) +
+        '</output><button type="button" data-action="inc" aria-label="Anzahl erhöhen">+</button></div>' +
+        '<div class="row-actions"><button type="button" class="btn sm" data-action="edit">Bearbeiten</button>' +
+        '<button type="button" class="btn sm' + (del ? " danger" : "") + '" data-action="del">' + (del ? "Wirklich löschen" : "Löschen") + "</button></div></div>" + extraHtml(it) + "</li>";
+    }).join("") + "</ul>";
+  }
+  function renderAll() { renderStats(); renderLocs(); renderStock(); renderResults(); renderBasis(); }
+
+  /* ---------- Formular ---------- */
+  function openForm(it) {
+    editingId = it ? it.id : null;
+    $("#addTitle").textContent = it ? "Karton bearbeiten" : "Neuer Karton";
+    $("#btnSave").textContent = it ? "Änderungen speichern" : "Speichern";
+    $("#a-name").value = it ? (it.name || "") : "";
+    $("#a-h").value = it ? it.h : "";
+    $("#a-b").value = it ? it.b : "";
+    $("#a-t").value = it ? it.t : "";
+    $("#a-qty").value = it ? (it.qty || 0) : 1;
+    $("#a-desc").value = it ? (it.desc || "") : "";
+    $("#a-loc").value = it ? (it.loc || "") : "";
+    $("#formErr").textContent = "";
+    $("#addForm").hidden = false;
+    $("#addForm").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    setTimeout(function () { $("#a-name").focus({ preventScroll: true }); }, 0);
+  }
+  function closeForm() { $("#addForm").hidden = true; editingId = null; }
+
+  $("#btnAdd").addEventListener("click", function () {
+    if ($("#addForm").hidden || editingId) openForm(null); else closeForm();
+  });
+  $("#btnCancel").addEventListener("click", closeForm);
+
+  $("#addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var h = num($("#a-h").value), b = num($("#a-b").value), t = num($("#a-t").value);
+    var qty = parseInt($("#a-qty").value, 10); if (!(qty >= 0)) qty = NaN;
+    var err = $("#formErr");
+    if (!(h > 0 && b > 0 && t > 0)) { err.textContent = "Bitte Höhe, Breite und Tiefe als Zahl größer als 0 angeben."; return; }
+    if (h > 1000 || b > 1000 || t > 1000) { err.textContent = "Ein Maß ist größer als 1000 cm. Bitte prüfen."; return; }
+    if (isNaN(qty)) { err.textContent = "Die Anzahl muss 0 oder größer sein."; return; }
+    err.textContent = "";
+    var old = editingId ? items.find(function (x) { return x.id === editingId; }) : null;
+    var it = {
+      id: old ? old.id : genId(),
+      name: $("#a-name").value.trim(), h: h, b: b, t: t,
+      desc: $("#a-desc").value.trim(), loc: $("#a-loc").value.trim(), qty: qty,
+      created: old && old.created ? old.created : Date.now()
+    };
+    saveItem(it).then(function () {
+      toast(old ? "Änderungen gespeichert" : "Karton gespeichert");
+    });
+    if (old) { closeForm(); }
+    else { openForm(null); }
+  });
+
+  /* Beispiele */
+  function loadSamples() {
+    var now = Date.now();
+    var s = [
+      ["Flacher Karton", 5, 35, 25, "Beispiel: Poster, Hefte, flache Textilien", 12],
+      ["Karton S", 10, 20, 15, "Beispiel: Kleinteile und Zubehör", 25],
+      ["Karton M", 15, 30, 20, "Beispiel: Bücher, Kleidung", 18],
+      ["Karton L", 25, 40, 30, "Beispiel: Schuhe, Haushaltswaren", 10],
+      ["Flaschenkarton", 35, 18, 18, "Beispiel: Flaschen und hohe Artikel", 8],
+      ["Karton XL", 40, 60, 40, "Beispiel: sperrige Ware", 4]
+    ];
+    var made = s.map(function (r, i) {
+      return { id: genId() + i, name: r[0], h: r[1], b: r[2], t: r[3], desc: r[4], loc: "", qty: r[5], created: now + i };
+    });
+    items = items.concat(made);
+    renderAll();
+    persistAll().then(function () { toast("Beispiel-Kartons geladen"); });
+  }
+
+  /* Liste: Klicks */
+  $("#stock").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+    var action = btn.getAttribute("data-action");
+    if (action === "open-add") { openForm(null); return; }
+    if (action === "samples") { loadSamples(); return; }
+    var li = btn.closest("li[data-id]");
+    if (!li) return;
+    var id = li.getAttribute("data-id");
+    var it = items.find(function (x) { return x.id === id; });
+    if (!it) return;
+    if (action === "inc") setQty(id, (it.qty || 0) + 1);
+    else if (action === "dec") setQty(id, (it.qty || 0) - 1);
+    else if (action === "edit") openForm(it);
+    else if (action === "del") {
+      if (pendingDelete === id) {
+        clearTimeout(pendingTimer); pendingDelete = null;
+        removeItem(id).then(function () { toast("Karton gelöscht"); });
+        renderStock();
+      } else {
+        pendingDelete = id; renderStock();
+        clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(function () { pendingDelete = null; renderStock(); }, 4000);
+      }
+    }
+  });
+
+  /* Eingaben */
+  $("#findForm").addEventListener("input", renderAll);
+  $("#findForm").addEventListener("change", renderAll);
+  $("#findForm").addEventListener("submit", function (e) { e.preventDefault(); });
+  $("#s-q").addEventListener("input", renderStock);
+  $("#shipOpts").addEventListener("input", renderAll);
+  $("#shipOpts").addEventListener("change", renderAll);
+  $("#s-sort").addEventListener("change", renderStock);
+
+  renderAll();
+  setStandDefault();
+  initStore();
+})();
+</script>
+</body>
+</html>
