@@ -609,7 +609,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   function initStore() {
     try { items = JSON.parse(localStorage.getItem(LS_KEY) || "[]") || []; } catch (e) { items = []; }
     loaded = true;
-    $("#storeNote").textContent = "Tipp: Klicke oben auf „daten.json verbinden“, damit dein Bestand direkt auf dem Fritzbox-Stick gespeichert wird.";
+    $("#storeNote").textContent = "Tipp: Der Bestand ist über die daten.json Datei gespeichert. Wenn nicht gerne per Kontaktformular auf der Startseite melden.";
     renderAll();
   }
 
