@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Heimnetz &amp; Geräte-Status</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slate: {
+              925: '#0b1120',
+              950: '#070b14',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar für dunkles Dashboard */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Sanfte Puls-Animation für Live-Status */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.85); opacity: 0.8; }
+      70% { transform: scale(1.8); opacity: 0; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    .pulse-dot::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background-color: inherit;
+      animation: pulse-ring 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+    }
+
+    /* Tacho-Bogen Animation */
+    .gauge-arc {
+      transition: stroke-dashoffset 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200 min-h-screen">
+
+  <!-- Haupt-Container (kompakt & iframe-freundlich) -->
+  <div class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+
+    <!-- 1. HEADER-BEREICH -->
+    <header class="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-black/30 backdrop-blur-md">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        
+        <!-- Titel & Gesamtstatus -->
+        <div class="flex items-start sm:items-center gap-3.5">
+          <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0 mt-0.5 sm:mt-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2.5">
+              <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">Heimnetz &amp; Geräte-Status</h1>
+              <!-- Dynamischer Gesamtstatus Badge -->
+              <span id="global-status-badge" class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                <span class="relative flex h-2 w-2">
+                  <span id="global-status-dot" class="relative inline-flex rounded-full h-2 w-2 bg-cyan-400"></span>
+                </span>
+                <span id="global-status-text">Initialisiere Check...</span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+              Lokales Netzwerk-Monitoring, Direktzugriff auf Weboberflächen &amp; Internet-Speedtest
+            </p>
+          </div>
+        </div>
+
+        <!-- Steuerungs-Leiste (Auto-Refresh, Jetzt prüfen, Gerät hinzufügen) -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800/80">
+          
+          <!-- Auto-Refresh Toggle -->
+          <label class="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 cursor-pointer select-none transition">
+            <div class="relative inline-flex items-center">
+              <input type="checkbox" id="auto-refresh-toggle" class="sr-only peer" checked>
+              <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+            </div>
+            <div class="text-xs">
+              <span class="font-medium text-slate-200">Auto-Refresh</span>
+              <span id="refresh-countdown" class="text-slate-400 font-mono ml-1">(30s)</span>
+            </div>
+          </label>
+
+          <!-- Button: Alle jetzt prüfen -->
+          <button id="check-all-btn" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-slate-100 text-xs font-medium border border-slate-700 transition cursor-pointer">
+            <svg id="check-all-icon" class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            <span>Alle jetzt prüfen</span>
+          </button>
+
+          <!-- Button: + Gerät hinzufügen -->
+          <button id="add-device-btn" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 active:scale-[0.98] text-white text-xs font-semibold shadow-lg shadow-cyan-950/50 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>Gerät hinzufügen</span>
+          </button>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- 2. GERÄTE- & SERVER-KARTEN -->
+    <section aria-label="Geräte und Server">
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <span>Lokale Geräte &amp; Dienste</span>
+          <span id="device-count-pill" class="px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-300 font-mono text-[11px]">4</span>
+        </h2>
+        <button id="reset-defaults-btn" type="button" class="text-[11px] text-slate-500 hover:text-slate-300 transition underline underline-offset-2 cursor-pointer" title="Standardgeräte wiederherstellen">
+          Standardliste wiederherstellen
+        </button>
+      </div>
+
+      <!-- Responsive Grid für die Gerätekarten -->
+      <div id="devices-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <!-- Karten werden dynamisch per JavaScript gerendert -->
+      </div>
+    </section>
+
+    <!-- 3. INTERNET-SPEEDTEST & LEITUNGS-MONITOR SEKTION -->
+    <section aria-label="Internet-Speedtest und Leitungs-Monitor" class="bg-slate-900/90 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-xl shadow-black/30">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+            <span>Internet-Speedtest &amp; Leitungs-Monitor</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Echtzeit-Leitungswerte, externe IPv4/IPv6-Adresse &amp; Cloudflare Durchsatz-Messung</p>
+        </div>
+
+        <button id="start-speedtest-btn" type="button" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-cyan-950/40 transition cursor-pointer shrink-0">
+          <svg id="speedtest-btn-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+          </svg>
+          <span id="speedtest-btn-text">Speedtest starten</span>
+        </button>
+      </div>
+
+      <!-- Fortschrittsbalken während des Speedtests -->
+      <div id="speedtest-progress-container" class="hidden mt-4">
+        <div class="flex items-center justify-between text-xs mb-1.5">
+          <span id="speedtest-phase-label" class="text-cyan-300 font-medium">Bereite Test vor...</span>
+          <span id="speedtest-percent-label" class="font-mono text-slate-400">0%</span>
+        </div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div id="speedtest-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Inhalt: Links Tacho/Messwerte, Rechts Leitungs-Infos -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-5 items-center">
+        
+        <!-- Tacho / Gauge für Download-Geschwindigkeit (5 Spalten) -->
+        <div class="lg:col-span-5 flex flex-col items-center justify-center bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 relative">
+          <div class="relative w-52 h-32 flex items-end justify-center overflow-hidden">
+            <svg viewBox="0 0 200 115" class="w-full h-full overflow-visible">
+              <defs>
+                <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#06b6d4" />
+                  <stop offset="60%" stop-color="#10b981" />
+                  <stop offset="100%" stop-color="#34d399" />
+                </linearGradient>
+              </defs>
+              <!-- Hintergrund-Bogen -->
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round" />
+              <!-- Aktiver Fortschritts-Bogen (Gesamtlänge ~251.3) -->
+              <path id="gauge-progress-arc" class="gauge-arc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#speedGradient)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3" />
+            </svg>
+            <div class="absolute bottom-1 text-center">
+              <div id="speed-download-value" class="text-3xl sm:text-4xl font-bold font-mono tracking-tight text-white">--.-</div>
+              <div class="text-[11px] font-semibold uppercase tracking-widest text-cyan-400 mt-0.5">Mbit/s Download</div>
+            </div>
+          </div>
+
+          <!-- Skalen-Labels -->
+          <div class="w-48 flex justify-between text-[10px] font-mono text-slate-500 mt-1 px-1">
+            <span>0</span>
+            <span>100</span>
+            <span>250</span>
+            <span>500+</span>
+          </div>
+        </div>
+
+        <!-- Messwerte (Ping, Jitter) & Browser-Netzwerkdaten (7 Spalten) -->
+        <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          
+          <!-- Ping & Jitter Kachel -->
+          <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+              <span>Latenz &amp; Stabilität</span>
+              <span class="text-[11px] font-mono text-slate-500">Cloudflare Edge</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+                <div class="text-[11px] text-slate-400">Ping (Ø)</div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span id="speed-ping-value" class="text-xl font-bold font-mono text-emerald-400">--</span>
+                  <span class="text-xs text-slate-400">ms</span>
+                </div>
+              </div>
+              <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+                <div class="text-[11px] text-slate-400">Jitter</div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span id="speed-jitter-value" class="text-xl font-bold font-mono text-cyan-400">--</span>
+                  <span class="text-xs text-slate-400">ms</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3 text-[11px] text-slate-500 flex items-center justify-between">
+              <span>Letzter Test:</span>
+              <span id="speed-last-run" class="font-mono text-slate-400">Noch nicht gestartet</span>
+            </div>
+          </div>
+
+          <!-- Leitungs-Monitor & Externe IP Kachel -->
+          <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between space-y-2.5">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>Leitungs-Info</span>
+              <span id="wan-online-badge" class="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                WAN Verbunden
+              </span>
+            </div>
+
+            <div class="space-y-2 text-xs">
+              <div class="flex items-center justify-between py-1 border-b border-slate-800/70">
+                <span class="text-slate-400">Externe IP:</span>
+                <div class="flex items-center gap-1.5">
+                  <span id="external-ip-value" class="font-mono font-medium text-slate-200">Wird ermittelt...</span>
+                  <button id="copy-ip-btn" type="button" class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-cyan-400 transition cursor-pointer" title="IP-Adresse kopieren">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between py-1 border-b border-slate-800/70">
+                <span class="text-slate-400">Verbindungstyp:</span>
+                <span id="net-type-value" class="font-mono text-slate-200">--</span>
+              </div>
+
+              <div class="flex items-center justify-between py-1">
+                <span class="text-slate-400">Browser-Downlink:</span>
+                <span id="net-downlink-value" class="font-mono text-cyan-300">--</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL: GERÄT HINZUFÜGEN / BEARBEITEN -->
+  <div id="device-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl transform transition-all">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 id="modal-title" class="text-base font-bold text-white">Gerät bearbeiten</h3>
+        <button id="close-modal-btn" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <form id="device-form" class="mt-4 space-y-4">
+        <input type="hidden" id="device-id-input" />
+
+        <div>
+          <label for="device-name-input" class="block text-xs font-medium text-slate-300 mb-1.5">Gerätename</label>
+          <input type="text" id="device-name-input" required placeholder="z. B. NAS Synology" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+        </div>
+
+        <div>
+          <label for="device-url-input" class="block text-xs font-medium text-slate-300 mb-1.5">IP-Adresse / Weboberflächen-URL</label>
+          <input type="url" id="device-url-input" required placeholder="http://192.168.178.50" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500" />
+          <p class="text-[11px] text-slate-500 mt-1">Bitte inklusive <code class="text-slate-400">http://</code> oder <code class="text-slate-400">https://</code> und optionalem Port angeben.</p>
+        </div>
+
+        <div>
+          <label for="device-category-input" class="block text-xs font-medium text-slate-300 mb-1.5">Kategorie</label>
+          <select id="device-category-input" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500">
+            <option value="Netzwerk">Netzwerk (Router / Switch / AP)</option>
+            <option value="Drucker">Drucker / Scanner</option>
+            <option value="Server">Server / NAS / Smart Home</option>
+            <option value="Sonstiges">Sonstiges Gerät</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+          <button id="cancel-modal-btn" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition cursor-pointer">
+            Abbrechen
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg shadow-cyan-950/50 transition cursor-pointer">
+            Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: LÖSCHBESTÄTIGUNG (Ersetzt confirm()) -->
+  <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-sm p-5 shadow-2xl">
+      <div class="flex items-center gap-3 text-rose-400 mb-2">
+        <div class="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-white">Gerät entfernen?</h3>
+      </div>
+      <p id="delete-modal-text" class="text-xs text-slate-400 leading-relaxed mb-5">
+        Möchtest du dieses Gerät wirklich aus deinem Dashboard löschen?
+      </p>
+      <div class="flex items-center justify-end gap-2.5">
+        <button id="cancel-delete-btn" type="button" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition cursor-pointer">
+          Abbrechen
+        </button>
+        <button id="confirm-delete-btn" type="button" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition cursor-pointer">
+          Ja, löschen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST BENACHRICHTIGUNG -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT LOGIK -->
+  <script>
+    /**
+     * Heimnetz & Geräte-Status Dashboard
+     * Speichert Geräte im localStorage, prüft HTTP-Erreichbarkeit per fetch(no-cors) + AbortController,
+     * überwacht Browser-Netzwerkdaten und führt einen Cloudflare-Speedtest durch.
+     */
+
+    const STORAGE_KEY = 'heimnetz_dashboard_devices_v1';
+
+    // Vorkonfigurierte Standardgeräte
+    const DEFAULT_DEVICES = [
+      {
+        id: 'dev-router',
+        name: 'Router / FRITZ!Box',
+        url: 'http://192.168.178.1',
+        category: 'Netzwerk'
+      },
+      {
+        id: 'dev-printer-1',
+        name: 'HP DeskJet 4320',
+        url: 'http://192.168.178.66',
+        category: 'Drucker'
+      },
+      {
+        id: 'dev-printer-2',
+        name: 'HP OfficeJet 6500',
+        url: 'http://192.168.178.60',
+        category: 'Drucker'
+      },
+      {
+        id: 'dev-server-1',
+        name: 'Homeserver / Minecraft Server',
+        url: 'http://192.168.178.68:8080',
+        category: 'Server'
+      }
+    ];
+
+    // Anwendungszustand
+    let devices = [];
+    let deviceStatuses = {}; // { [id]: { status: 'checking' | 'online' | 'offline', latency: number | null } }
+    let autoRefreshSeconds = 30;
+    let countdown = autoRefreshSeconds;
+    let countdownInterval = null;
+    let pendingDeleteId = null;
+    let isSpeedtestRunning = false;
+
+    // DOM-Elemente referenzieren
+    const devicesGrid = document.getElementById('devices-grid');
+    const deviceCountPill = document.getElementById('device-count-pill');
+    const globalStatusBadge = document.getElementById('global-status-badge');
+    const globalStatusDot = document.getElementById('global-status-dot');
+    const globalStatusText = document.getElementById('global-status-text');
+    const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+    const refreshCountdownEl = document.getElementById('refresh-countdown');
+    const checkAllBtn = document.getElementById('check-all-btn');
+    const checkAllIcon = document.getElementById('check-all-icon');
+    const addDeviceBtn = document.getElementById('add-device-btn');
+    const resetDefaultsBtn = document.getElementById('reset-defaults-btn');
+
+    // Modal Elemente
+    const deviceModal = document.getElementById('device-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const deviceForm = document.getElementById('device-form');
+    const deviceIdInput = document.getElementById('device-id-input');
+    const deviceNameInput = document.getElementById('device-name-input');
+    const deviceUrlInput = document.getElementById('device-url-input');
+    const deviceCategoryInput = document.getElementById('device-category-input');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const cancelModalBtn = document.getElementById('cancel-modal-btn');
+
+    // Delete Modal Elemente
+    const deleteModal = document.getElementById('delete-modal');
+    const deleteModalText = document.getElementById('delete-modal-text');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+    /**
+     * Lädt Geräte aus dem localStorage oder nutzt Standardwerte
+     */
+    function loadDevices() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            devices = parsed;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Fehler beim Lesen aus localStorage:', e);
+      }
+      devices = JSON.parse(JSON.stringify(DEFAULT_DEVICES));
+      saveDevices();
+    }
+
+    /**
+     * Speichert die aktuelle Geräteliste im localStorage
+     */
+    function saveDevices() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(devices));
+      } catch (e) {
+        console.warn('Fehler beim Speichern im localStorage:', e);
+      }
+    }
+
+    /**
+     * Liefert das passende SVG-Icon je nach Gerätekategorie
+     */
+    function getCategoryIcon(category) {
+      switch (category) {
+        case 'Netzwerk':
+          return `<svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                  </svg>`;
+        case 'Drucker':
+          return `<svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                  </svg>`;
+        case 'Server':
+          return `<svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z" />
+                  </svg>`;
+        default:
+          return `<svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+                  </svg>`;
+      }
+    }
+
+    /**
+     * Escapes HTML zur Vermeidung von XSS bei benutzerdefinierten Gerätenamen
+     */
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    /**
+     * Bereinigt die URL für die kompakte Anzeige (entfernt http://)
+     */
+    function formatDisplayUrl(url) {
+      return url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+
+    /**
+     * Rendert alle Gerätekarten im Grid
+     */
+    function renderDevices() {
+      deviceCountPill.textContent = devices.length;
+      devicesGrid.innerHTML = '';
+
+      devices.forEach((device) => {
+        const state = deviceStatuses[device.id] || { status: 'checking', latency: null };
+        
+        // Status-Pill Design bestimmen
+        let statusPillHtml = '';
+        let cardBorderClass = 'border-slate-800/90 hover:border-slate-700';
+
+        if (state.status === 'online') {
+          cardBorderClass = 'border-emerald-500/30 hover:border-emerald-500/50';
+          statusPillHtml = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <span class="relative flex h-2 w-2">
+                <span class="pulse-dot relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              </span>
+              Online
+            </span>`;
+        } else if (state.status === 'offline') {
+          cardBorderClass = 'border-rose-500/30 hover:border-rose-500/50';
+          statusPillHtml = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+              <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+              Nicht erreichbar
+            </span>`;
+        } else {
+          statusPillHtml = `
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+              <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              Prüft...
+            </span>`;
+        }
+
+        // Latenz-Anzeige
+        const latencyDisplay = state.status === 'online' && state.latency !== null
+          ? `<span class="text-emerald-400 font-semibold">${state.latency} ms</span>`
+          : state.status === 'offline'
+            ? `<span class="text-rose-400">Timeout</span>`
+            : `<span class="text-slate-500">---</span>`;
+
+        const card = document.createElement('article');
+        card.className = `bg-slate-900/90 border ${cardBorderClass} rounded-2xl p-4 flex flex-col justify-between shadow-lg shadow-black/25 transition-all duration-200 group`;
+        card.innerHTML = `
+          <div>
+            <!-- Oberer Bereich: Kategorie-Icon + Aktionen (Bearbeiten / Löschen) -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 shrink-0">
+                  ${getCategoryIcon(device.category)}
+                </div>
+                <div class="min-w-0">
+                  <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">${escapeHtml(device.category)}</span>
+                  <h3 class="text-sm font-bold text-white truncate" title="${escapeHtml(device.name)}">${escapeHtml(device.name)}</h3>
+                </div>
+              </div>
+
+              <!-- Bearbeiten / Löschen Buttons -->
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button" data-action="edit" data-id="${device.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-800 transition cursor-pointer" title="Gerät bearbeiten">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+                <button type="button" data-action="delete" data-id="${device.id}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer" title="Gerät entfernen">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Status-Pill & Latenz -->
+            <div class="mt-4 flex items-center justify-between gap-2 bg-slate-950/70 border border-slate-800/80 rounded-xl px-3 py-2">
+              ${statusPillHtml}
+              <div class="text-xs font-mono">
+                ${latencyDisplay}
+              </div>
+            </div>
+
+            <!-- Angezeigte IP / URL -->
+            <div class="mt-2.5 px-1 flex items-center justify-between text-xs text-slate-400">
+              <span class="truncate font-mono text-[11px]" title="${escapeHtml(device.url)}">${escapeHtml(formatDisplayUrl(device.url))}</span>
+              <button type="button" data-action="recheck" data-id="${device.id}" class="text-[11px] text-cyan-400 hover:text-cyan-300 ml-2 shrink-0 cursor-pointer" title="Einzeln prüfen">
+                Ping
+              </button>
+            </div>
+          </div>
+
+          <!-- Prominenter Klick-Button: Weboberfläche öffnen -->
+          <div class="mt-4 pt-3 border-t border-slate-800/80">
+            <a href="${escapeHtml(device.url)}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-cyan-600 text-slate-100 hover:text-white text-xs font-semibold border border-slate-700 hover:border-cyan-500 transition-colors">
+              <span>Weboberfläche öffnen</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+              </svg>
+            </a>
+          </div>
+        `;
+
+        devicesGrid.appendChild(card);
+      });
+
+      updateGlobalStatusSummary();
+    }
+
+    /**
+     * Aktualisiert die Gesamtstatus-Anzeige im Header
+     */
+    function updateGlobalStatusSummary() {
+      const total = devices.length;
+      if (total === 0) {
+        globalStatusText.textContent = 'Keine Geräte konfiguriert';
+        globalStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-slate-400';
+        return;
+      }
+
+      const statuses = devices.map(d => deviceStatuses[d.id]?.status || 'checking');
+      const checkingCount = statuses.filter(s => s === 'checking').length;
+      const onlineCount = statuses.filter(s => s === 'online').length;
+
+      if (checkingCount > 0) {
+        globalStatusText.textContent = `Prüfe Geräte (${onlineCount}/${total} online)...`;
+        globalStatusBadge.className = 'inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30';
+        globalStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-cyan-400 animate-ping';
+      } else if (onlineCount === total) {
+        globalStatusText.textContent = `Alle Systeme online (${onlineCount}/${total})`;
+        globalStatusBadge.className = 'inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+        globalStatusDot.className = 'pulse-dot relative inline-flex rounded-full h-2 w-2 bg-emerald-400';
+      } else if (onlineCount === 0) {
+        globalStatusText.textContent = `0 von ${total} Geräten erreichbar`;
+        globalStatusBadge.className = 'inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30';
+        globalStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-rose-500';
+      } else {
+        globalStatusText.textContent = `${onlineCount} von ${total} Geräten erreichbar`;
+        globalStatusBadge.className = 'inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30';
+        globalStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-amber-400';
+      }
+    }
+
+    /**
+     * Führt einen echten HTTP-Erreichbarkeitstest per fetch() mit mode: 'no-cors'
+     * und AbortController-Timeout (3 Sekunden) durch.
+     */
+    async function checkSingleDevice(device) {
+      deviceStatuses[device.id] = { status: 'checking', latency: null };
+      renderDevices();
+
+      const controller = new AbortController();
+      const timeoutMs = 3000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      // Cache-Buster anhängen, damit keine gecachten Antworten gemessen werden
+      const separator = device.url.includes('?') ? '&' : '?';
+      const probeUrl = `${device.url}${separator}_ping=${Date.now()}`;
+
+      const startTime = performance.now();
+
+      try {
+        await fetch(probeUrl, {
+          method: 'GET',
+          mode: 'no-cors',
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const latency = Math.max(1, Math.round(performance.now() - startTime));
+        deviceStatuses[device.id] = { status: 'online', latency };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        // Bei Netzwerkfehler, Timeout (AbortError) oder Connection Refused gilt das Gerät als nicht erreichbar
+        deviceStatuses[device.id] = { status: 'offline', latency: null };
+      }
+
+      renderDevices();
+    }
+
+    /**
+     * Prüft alle konfigurierten Geräte parallel
+     */
+    async function checkAllDevices() {
+      checkAllIcon.classList.add('animate-spin');
+      countdown = autoRefreshSeconds;
+      updateCountdownLabel();
+
+      const tasks = devices.map(device => checkSingleDevice(device));
+      await Promise.allSettled(tasks);
+
+      setTimeout(() => {
+        checkAllIcon.classList.remove('animate-spin');
+      }, 300);
+    }
+
+    /**
+     * Steuert den 30-Sekunden Auto-Refresh Timer
+     */
+    function startAutoRefreshTimer() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        if (!autoRefreshToggle.checked) return;
+        countdown--;
+        if (countdown <= 0) {
+          countdown = autoRefreshSeconds;
+          checkAllDevices();
+        }
+        updateCountdownLabel();
+      }, 1000);
+    }
+
+    function updateCountdownLabel() {
+      if (autoRefreshToggle.checked) {
+        refreshCountdownEl.textContent = `(${countdown}s)`;
+        refreshCountdownEl.classList.remove('opacity-50');
+      } else {
+        refreshCountdownEl.textContent = '(Aus)';
+        refreshCountdownEl.classList.add('opacity-50');
+      }
+    }
+
+    /**
+     * Event-Delegation für Karten-Buttons (Bearbeiten, Löschen, Einzel-Ping)
+     */
+    devicesGrid.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const device = devices.find(d => d.id === id);
+      if (!device) return;
+
+      if (action === 'edit') {
+        openDeviceModal(device);
+      } else if (action === 'delete') {
+        openDeleteModal(device);
+      } else if (action === 'recheck') {
+        checkSingleDevice(device);
+      }
+    });
+
+    /**
+     * Öffnet das Modal zum Hinzufügen oder Bearbeiten eines Geräts
+     */
+    function openDeviceModal(device = null) {
+      if (device) {
+        modalTitle.textContent = 'Gerät bearbeiten';
+        deviceIdInput.value = device.id;
+        deviceNameInput.value = device.name;
+        deviceUrlInput.value = device.url;
+        deviceCategoryInput.value = device.category;
+      } else {
+        modalTitle.textContent = 'Neues Gerät hinzufügen';
+        deviceIdInput.value = '';
+        deviceNameInput.value = '';
+        deviceUrlInput.value = 'http://192.168.178.';
+        deviceCategoryInput.value = 'Server';
+      }
+      deviceModal.classList.remove('hidden');
+      deviceModal.classList.add('flex');
+      deviceNameInput.focus();
+    }
+
+    function closeDeviceModal() {
+      deviceModal.classList.add('hidden');
+      deviceModal.classList.remove('flex');
+    }
+
+    /**
+     * Speichert neues oder bearbeitetes Gerät
+     */
+    deviceForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = deviceIdInput.value.trim();
+      const name = deviceNameInput.value.trim();
+      let url = deviceUrlInput.value.trim();
+      const category = deviceCategoryInput.value;
+
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'http://' + url;
+      }
+
+      if (id) {
+        // Bestehendes Gerät aktualisieren
+        const idx = devices.findIndex(d => d.id === id);
+        if (idx !== -1) {
+          devices[idx] = { ...devices[idx], name, url, category };
+          saveDevices();
+          closeDeviceModal();
+          showToast(`"${name}" wurde aktualisiert.`);
+          checkSingleDevice(devices[idx]);
+        }
+      } else {
+        // Neues Gerät anlegen
+        const newDevice = {
+          id: 'dev-' + Date.now(),
+          name,
+          url,
+          category
+        };
+        devices.push(newDevice);
+        saveDevices();
+        closeDeviceModal();
+        showToast(`"${name}" wurde hinzugefügt.`);
+        checkSingleDevice(newDevice);
+      }
+    });
+
+    /**
+     * Öffnet Löschbestätigung
+     */
+    function openDeleteModal(device) {
+      pendingDeleteId = device.id;
+      deleteModalText.textContent = `Möchtest du "${device.name}" (${formatDisplayUrl(device.url)}) wirklich aus deinem Dashboard entfernen?`;
+      deleteModal.classList.remove('hidden');
+      deleteModal.classList.add('flex');
+    }
+
+    function closeDeleteModal() {
+      pendingDeleteId = null;
+      deleteModal.classList.add('hidden');
+      deleteModal.classList.remove('flex');
+    }
+
+    confirmDeleteBtn.addEventListener('click', () => {
+      if (!pendingDeleteId) return;
+      const target = devices.find(d => d.id === pendingDeleteId);
+      devices = devices.filter(d => d.id !== pendingDeleteId);
+      delete deviceStatuses[pendingDeleteId];
+      saveDevices();
+      renderDevices();
+      closeDeleteModal();
+      if (target) {
+        showToast(`"${target.name}" wurde entfernt.`);
+      }
+    });
+
+    /**
+     * =========================================================================
+     * 3. INTERNET-SPEEDTEST & LEITUNGS-MONITOR
+     * =========================================================================
+     */
+
+    const externalIpEl = document.getElementById('external-ip-value');
+    const copyIpBtn = document.getElementById('copy-ip-btn');
+    const netTypeEl = document.getElementById('net-type-value');
+    const netDownlinkEl = document.getElementById('net-downlink-value');
+    const wanOnlineBadge = document.getElementById('wan-online-badge');
+
+    const startSpeedtestBtn = document.getElementById('start-speedtest-btn');
+    const speedtestBtnText = document.getElementById('speedtest-btn-text');
+    const progressContainer = document.getElementById('speedtest-progress-container');
+    const progressBar = document.getElementById('speedtest-progress-bar');
+    const phaseLabel = document.getElementById('speedtest-phase-label');
+    const percentLabel = document.getElementById('speedtest-percent-label');
+
+    const gaugeArc = document.getElementById('gauge-progress-arc');
+    const downloadValueEl = document.getElementById('speed-download-value');
+    const pingValueEl = document.getElementById('speed-ping-value');
+    const jitterValueEl = document.getElementById('speed-jitter-value');
+    const lastRunEl = document.getElementById('speed-last-run');
+
+    /**
+     * Liest lokale Browser-Netzwerkdaten (navigator.connection & navigator.onLine)
+     */
+    function updateBrowserNetworkInfo() {
+      const isOnline = navigator.onLine;
+      if (isOnline) {
+        wanOnlineBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> WAN Verbunden`;
+        wanOnlineBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400';
+      } else {
+        wanOnlineBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Offline`;
+        wanOnlineBadge.className = 'inline-flex items-center gap-1.5 text-[11px] font-medium text-rose-400';
+      }
+
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn) {
+        const effType = conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unbekannt';
+        const rawType = conn.type && conn.type !== 'unknown' ? ` (${conn.type})` : '';
+        netTypeEl.textContent = `${effType}${rawType}`;
+        netDownlinkEl.textContent = typeof conn.downlink === 'number' ? `~${conn.downlink} Mbit/s` : 'k. A.';
+      } else {
+        netTypeEl.textContent = isOnline ? 'Standard (LAN/WLAN)' : 'Getrennt';
+        netDownlinkEl.textContent = 'Nicht unterstützt';
+      }
+    }
+
+    /**
+     * Ermittelt die aktuelle externe IP-Adresse über api.ipify.org
+     */
+    async function fetchExternalIp() {
+      try {
+        const res = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('IP API Fehler');
+        const data = await res.json();
+        externalIpEl.textContent = data.ip || 'Unbekannt';
+      } catch (e) {
+        externalIpEl.textContent = 'Nicht ermittelbar';
+      }
+    }
+
+    /**
+     * Kopiert die externe IP in die Zwischenablage (iframe-kompatibel via execCommand)
+     */
+    copyIpBtn.addEventListener('click', () => {
+      const ip = externalIpEl.textContent;
+      if (!ip || ip.includes('...')) return;
+
+      const tempInput = document.createElement('input');
+      tempInput.value = ip;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand('copy');
+        showToast(`Externe IP (${ip}) kopiert!`);
+      } catch (err) {
+        showToast('Kopieren fehlgeschlagen.');
+      }
+      document.body.removeChild(tempInput);
+    });
+
+    /**
+     * Aktualisiert die Tacho-Bogenanzeige (0 bis 500 Mbit/s)
+     */
+    function updateSpeedGauge(mbps) {
+      const maxArc = 251.3;
+      const maxMbps = 500;
+      const clamped = Math.min(Math.max(0, mbps), maxMbps);
+      // Nicht-lineare Skalierung, damit auch 50-100 Mbit/s optisch gut sichtbar sind
+      const ratio = Math.pow(clamped / maxMbps, 0.75);
+      const offset = maxArc - (ratio * maxArc);
+      gaugeArc.style.strokeDashoffset = offset.toFixed(1);
+      downloadValueEl.textContent = mbps > 0 ? mbps.toFixed(1) : '--.-';
+    }
+
+    /**
+     * Führt den interaktiven Speedtest durch:
+     * 1) 3 Ping-Durchläufe zu Cloudflare/Google für Ping & Jitter
+     * 2) Download-Messung über speed.cloudflare.com (__down?bytes=10000000) mit Live-Fortschritt
+     */
+    async function runSpeedtest() {
+      if (isSpeedtestRunning) return;
+      isSpeedtestRunning = true;
+
+      startSpeedtestBtn.disabled = true;
+      startSpeedtestBtn.classList.add('opacity-60', 'cursor-not-allowed');
+      speedtestBtnText.textContent = 'Messung läuft...';
+
+      progressContainer.classList.remove('hidden');
+      progressBar.style.width = '5%';
+      percentLabel.textContent = '5%';
+      phaseLabel.textContent = 'Messe Ping & Jitter (3 Durchläufe)...';
+
+      updateSpeedGauge(0);
+      pingValueEl.textContent = '--';
+      jitterValueEl.textContent = '--';
+
+      // --- PHASE 1: PING & JITTER (3 Durchläufe) ---
+      const pingTargets = [
+        'https://speed.cloudflare.com/__down?bytes=0',
+        'https://www.google.com/generate_204',
+        'https://speed.cloudflare.com/__down?bytes=0'
+      ];
+      const pingResults = [];
+
+      for (let i = 0; i < pingTargets.length; i++) {
+        const t0 = performance.now();
+        try {
+          await fetch(`${pingTargets[i]}${pingTargets[i].includes('?') ? '&' : '?'}t=${Date.now()}`, {
+            mode: 'no-cors',
+            cache: 'no-store'
+          });
+          const rtt = Math.max(1, Math.round(performance.now() - t0));
+          pingResults.push(rtt);
+        } catch (e) {
+          // Fallback falls ein Ziel blockiert wird
+        }
+        const pct = Math.round(((i + 1) / 3) * 25);
+        progressBar.style.width = `${pct}%`;
+        percentLabel.textContent = `${pct}%`;
+      }
+
+      if (pingResults.length > 0) {
+        const avgPing = Math.round(pingResults.reduce((a, b) => a + b, 0) / pingResults.length);
+        pingValueEl.textContent = avgPing;
+
+        // Jitter als durchschnittliche Abweichung zwischen aufeinanderfolgenden Pings
+        if (pingResults.length > 1) {
+          let diffSum = 0;
+          for (let i = 1; i < pingResults.length; i++) {
+            diffSum += Math.abs(pingResults[i] - pingResults[i - 1]);
+          }
+          const jitter = Math.max(1, Math.round(diffSum / (pingResults.length - 1)));
+          jitterValueEl.textContent = jitter;
+        } else {
+          jitterValueEl.textContent = '1';
+        }
+      } else {
+        pingValueEl.textContent = 'Fehler';
+        jitterValueEl.textContent = '--';
+      }
+
+      // --- PHASE 2: DOWNLOAD-GESCHWINDIGKEIT (10 MB Payload von Cloudflare) ---
+      phaseLabel.textContent = 'Messe Download-Bandbreite (10 MB Testpaket)...';
+      const testBytes = 10000000; // 10 MB
+      const downloadUrl = `https://speed.cloudflare.com/__down?bytes=${testBytes}&_=${Date.now()}`;
+
+      try {
+        const response = await fetch(downloadUrl, { cache: 'no-store' });
+        if (!response.ok || !response.body) {
+          throw new Error('Stream nicht verfügbar');
+        }
+
+        const reader = response.body.getReader();
+        let receivedBytes = 0;
+        const startDownloadTime = performance.now();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          receivedBytes += value.byteLength;
+          const elapsedSeconds = (performance.now() - startDownloadTime) / 1000;
+
+          if (elapsedSeconds > 0.05) {
+            const bitsLoaded = receivedBytes * 8;
+            const mbps = (bitsLoaded / elapsedSeconds) / 1_000_000;
+            updateSpeedGauge(mbps);
+          }
+
+          const downloadRatio = Math.min(1, receivedBytes / testBytes);
+          const totalPct = Math.round(25 + downloadRatio * 75);
+          progressBar.style.width = `${totalPct}%`;
+          percentLabel.textContent = `${totalPct}%`;
+        }
+
+        const totalDurationSec = Math.max(0.01, (performance.now() - startDownloadTime) / 1000);
+        const finalMbps = ((receivedBytes * 8) / totalDurationSec) / 1_000_000;
+        updateSpeedGauge(finalMbps);
+
+        phaseLabel.textContent = 'Speedtest erfolgreich abgeschlossen!';
+        const now = new Date();
+        lastRunEl.textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' Uhr';
+        showToast(`Speedtest fertig: ${finalMbps.toFixed(1)} Mbit/s`);
+
+      } catch (err) {
+        console.error('Speedtest-Fehler:', err);
+        phaseLabel.textContent = 'Download-Messung fehlgeschlagen (Netzwerk/CORS).';
+        showToast('Speedtest konnte nicht vollständig durchgeführt werden.');
+      } finally {
+        isSpeedtestRunning = false;
+        startSpeedtestBtn.disabled = false;
+        startSpeedtestBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+        speedtestBtnText.textContent = 'Erneut testen';
+
+        setTimeout(() => {
+          progressContainer.classList.add('hidden');
+        }, 2500);
+      }
+    }
+
+    /**
+     * Zeigt eine dezente Toast-Nachricht unten rechts an
+     */
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'bg-slate-800 border border-slate-700 text-slate-100 text-xs font-medium px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300 opacity-0 translate-y-2';
+      toast.innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+        <span>${escapeHtml(message)}</span>
+      `;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-2');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 2800);
+    }
+
+    // --- EVENT LISTENER & INITIALISIERUNG ---
+    checkAllBtn.addEventListener('click', checkAllDevices);
+    addDeviceBtn.addEventListener('click', () => openDeviceModal(null));
+    closeModalBtn.addEventListener('click', closeDeviceModal);
+    cancelModalBtn.addEventListener('click', closeDeviceModal);
+    cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+    startSpeedtestBtn.addEventListener('click', runSpeedtest);
+
+    autoRefreshToggle.addEventListener('change', () => {
+      countdown = autoRefreshSeconds;
+      updateCountdownLabel();
+    });
+
+    resetDefaultsBtn.addEventListener('click', () => {
+      devices = JSON.parse(JSON.stringify(DEFAULT_DEVICES));
+      deviceStatuses = {};
+      saveDevices();
+      renderDevices();
+      checkAllDevices();
+      showToast('Standardgeräte wiederhergestellt.');
+    });
+
+    // Schließen der Modals bei Klick auf Hintergrund oder ESC-Taste
+    deviceModal.addEventListener('click', (e) => {
+      if (e.target === deviceModal) closeDeviceModal();
+    });
+    deleteModal.addEventListener('click', (e) => {
+      if (e.target === deleteModal) closeDeleteModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeDeviceModal();
+        closeDeleteModal();
+      }
+    });
+
+    window.addEventListener('online', updateBrowserNetworkInfo);
+    window.addEventListener('offline', updateBrowserNetworkInfo);
+    if (navigator.connection) {
+      navigator.connection.addEventListener('change', updateBrowserNetworkInfo);
+    }
+
+    // Initialer Start beim Laden der Seite
+    window.addEventListener('DOMContentLoaded', () => {
+      loadDevices();
+      renderDevices();
+      checkAllDevices();
+      startAutoRefreshTimer();
+      updateBrowserNetworkInfo();
+      fetchExternalIp();
+    });
+  </script>
+</body>
+</html>

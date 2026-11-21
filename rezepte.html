@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rezepte & Anleitungen – Heimnetz Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom Scrollbar für einen cleanen Look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200 min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-4 md:px-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">Rezepte & Anleitungen</h1>
+                    <p class="text-xs text-slate-400">Lokale Sammlung aus dem Ordner <code class="text-cyan-400 bg-slate-800 px-1.5 py-0.5 rounded">/Rezepte/</code></p>
+                </div>
+            </div>
+
+            <!-- Suchfeld & Controls -->
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <div class="relative flex-1 md:w-80">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Rezept suchen (z.B. Waffeln)..." 
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition-colors"
+                    >
+                    <button id="clearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+                <button onclick="toggleAllAccordions(true)" title="Alle ausklappen" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 text-xs font-medium transition-colors hidden sm:block">
+                    Alle öffnen
+                </button>
+                <button onclick="toggleAllAccordions(false)" title="Alle einklappen" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 text-xs font-medium transition-colors hidden sm:block">
+                    Alle schließen
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <div class="flex-1 max-w-7xl w-full mx-auto px-4 md:px-8 py-6 flex gap-6 relative">
+        
+        <!-- Linke / Haupt-Spalte: Ausklappbare Buchstaben-Felder -->
+        <main class="flex-1 space-y-3 pr-8 md:pr-12" id="recipeContainer">
+            <!-- Wird dynamisch per JavaScript gefüllt -->
+        </main>
+
+        <!-- Rechte Schnellwahl-Leiste (Alphabet Index wie beim Smartphone) -->
+        <aside class="fixed right-2 md:right-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl py-2 px-1.5 shadow-xl flex flex-col items-center select-none max-h-[80vh] overflow-y-auto" id="alphabetSidebar">
+            <!-- Wird dynamisch per JavaScript gefüllt -->
+        </aside>
+
+    </div>
+
+    <!-- Modal für Vorschau im Browser -->
+    <div id="previewModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-900">
+                <div class="flex items-center gap-2.5 truncate">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                    <h3 id="modalTitle" class="font-semibold text-white truncate">Dateivorschau</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a id="modalDownloadBtn" href="#" download class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download
+                    </a>
+                    <button onclick="closePreview()" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 bg-slate-950 relative">
+                <iframe id="previewFrame" src="" class="w-full h-full border-0"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // HIER DEINE REZEPT-DATEIEN EINTRAGEN!
+        // Lege die Dateien einfach in den Unterordner "Rezepte" (neben dieser HTML-Datei)
+        // und schreibe hier den exakten Dateinamen rein.
+        // Das Skript sortiert sie automatisch nach dem ersten Buchstaben ein!
+        // =========================================================================
+        const REZEPT_DATEIEN = [
+            "Apfelkuchen_Oma.pdf",
+            "Bananenbrot.pdf",
+            "Eierkuchen_Grundrezept.pdf",
+            "Kaiserschmarrn.pdf",
+            "Kartoffelpuffer_ohne_Ei.pdf",
+            "Kekse_Schoko.pdf",
+            "Spaghetti_Bolognese.pdf",
+            "Waffeln_ohne_Backpulver.pdf",
+            "Regenbogen-Muffins Rezept.pdf"
+        ];
+
+        const ORDNER_PFAD = "Rezepte/";
+        const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ#".split("");
+
+        const container = document.getElementById("recipeContainer");
+        const sidebar = document.getElementById("alphabetSidebar");
+        const searchInput = document.getElementById("searchInput");
+        const clearSearchBtn = document.getElementById("clearSearch");
+
+        // Hilfsfunktion: Dateiname schön formatieren (Endung weg, Unterstriche zu Leerzeichen)
+        function formatDisplayName(filename) {
+            const withoutExt = filename.replace(/\.[^/.]+$/, "");
+            return withoutExt.replace(/_/g, " ");
+        }
+
+        // Hilfsfunktion: Dateiendung holen für Badge
+        function getFileExtension(filename) {
+            const match = filename.match(/\.([^/.]+)$/);
+            return match ? match[1].toUpperCase() : "DATEI";
+        }
+
+        // Hilfsfunktion: Ersten Buchstaben bestimmen
+        function getInitialLetter(displayName) {
+            const firstChar = displayName.trim().charAt(0).toUpperCase();
+            if (ALPHABET.includes(firstChar)) {
+                return firstChar;
+            }
+            return "#";
+        }
+
+        // Daten gruppieren & sortieren
+        function groupFiles(files) {
+            const groups = {};
+            ALPHABET.forEach(letter => groups[letter] = []);
+
+            files.forEach(file => {
+                const displayName = formatDisplayName(file);
+                const letter = getInitialLetter(displayName);
+                groups[letter].push({
+                    filename: file,
+                    displayName: displayName,
+                    ext: getFileExtension(file),
+                    url: ORDNER_PFAD + encodeURIComponent(file)
+                });
+            });
+
+            // Innerhalb jedes Buchstabens alphabetisch sortieren
+            Object.keys(groups).forEach(letter => {
+                groups[letter].sort((a, b) => a.displayName.localeCompare(b.displayName, 'de'));
+            });
+
+            return groups;
+        }
+
+        // UI rendern
+        function renderDashboard(filterText = "") {
+            const query = filterText.toLowerCase().trim();
+            const filteredFiles = REZEPT_DATEIEN.filter(file => 
+                formatDisplayName(file).toLowerCase().includes(query)
+            );
+
+            const grouped = groupFiles(filteredFiles);
+            container.innerHTML = "";
+            sidebar.innerHTML = "";
+
+            let totalShown = 0;
+
+            ALPHABET.forEach(letter => {
+                const items = grouped[letter];
+                const hasItems = items.length > 0;
+                if (hasItems) totalShown += items.length;
+
+                // 1. Rechte Seitenleiste (Buchstaben-Index)
+                const navBtn = document.createElement("button");
+                navBtn.textContent = letter;
+                navBtn.className = `w-6 h-6 text-[11px] font-bold rounded-lg flex items-center justify-center transition-all ${
+                    hasItems 
+                    ? "text-cyan-400 hover:bg-cyan-500/20 hover:scale-110 cursor-pointer" 
+                    : "text-slate-600 cursor-default"
+                }`;
+                if (hasItems) {
+                    navBtn.onclick = () => jumpToLetter(letter);
+                }
+                sidebar.appendChild(navBtn);
+
+                // Wenn gesucht wird, leere Buchstaben komplett ausblenden
+                if (query !== "" && !hasItems) return;
+
+                // 2. Linkes/Haupt-Feld: Ausklappbares Buchstaben-Accordion
+                const section = document.createElement("div");
+                section.id = `section-${letter}`;
+                section.className = `border rounded-2xl transition-colors overflow-hidden ${
+                    hasItems 
+                    ? "bg-slate-900/70 border-slate-800" 
+                    : "bg-slate-900/30 border-slate-800/50 opacity-60"
+                }`;
+
+                // Header des Buchstaben-Feldes
+                const headerBtn = document.createElement("button");
+                headerBtn.type = "button";
+                headerBtn.disabled = !hasItems;
+                headerBtn.className = `w-full px-5 py-3.5 flex items-center justify-between text-left transition-colors ${
+                    hasItems ? "hover:bg-slate-800/60 cursor-pointer" : "cursor-default"
+                }`;
+
+                headerBtn.innerHTML = `
+                    <div class="flex items-center gap-3.5">
+                        <span class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-base ${
+                            hasItems 
+                            ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" 
+                            : "bg-slate-800/80 text-slate-500"
+                        }">
+                            ${letter}
+                        </span>
+                        <div>
+                            <span class="font-semibold text-slate-200">${hasItems ? `${items.length} ${items.length === 1 ? 'Rezept' : 'Rezepte'}` : 'Keine Einträge'}</span>
+                        </div>
+                    </div>
+                    ${hasItems ? `
+                        <svg id="chevron-${letter}" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 transition-transform duration-200 ${query !== "" ? "rotate-180" : ""}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    ` : ''}
+                `;
+
+                // Inhalt (Liste der Dateien unter diesem Buchstaben)
+                const contentDiv = document.createElement("div");
+                contentDiv.id = `content-${letter}`;
+                // Standardmäßig eingeklappt, außer es wird gerade gesucht
+                contentDiv.className = `border-t border-slate-800/80 divide-y divide-slate-800/60 ${query !== "" && hasItems ? "" : "hidden"}`;
+
+                if (hasItems) {
+                    headerBtn.onclick = () => toggleAccordion(letter);
+
+                    items.forEach(item => {
+                        const row = document.createElement("div");
+                        row.className = "px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-800/40 transition-colors";
+                        row.innerHTML = `
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="px-2 py-0.5 text-[10px] font-bold tracking-wider rounded bg-slate-800 text-cyan-300 border border-slate-700 shrink-0">
+                                    ${item.ext}
+                                </span>
+                                <span class="font-medium text-slate-100 truncate" title="${item.filename}">
+                                    ${item.displayName}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button onclick="openPreview('${item.displayName.replace(/'/g, "\\'")}', '${item.url}')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    Ansehen
+                                </button>
+                                <a href="${item.url}" download="${item.filename}" class="px-3 py-1.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Download
+                                </a>
+                            </div>
+                        `;
+                        contentDiv.appendChild(row);
+                    });
+                }
+
+                section.appendChild(headerBtn);
+                section.appendChild(contentDiv);
+                container.appendChild(section);
+            });
+
+            if (totalShown === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-slate-900/50 border border-slate-800 rounded-2xl">
+                        <p class="text-slate-400 text-sm">Kein Rezept gefunden für "<span class="text-white font-semibold">${filterText}</span>"</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Einzelnes Feld auf-/zuklappen
+        function toggleAccordion(letter) {
+            const content = document.getElementById(`content-${letter}`);
+            const chevron = document.getElementById(`chevron-${letter}`);
+            if (!content) return;
+
+            const isHidden = content.classList.contains("hidden");
+            if (isHidden) {
+                content.classList.remove("hidden");
+                if (chevron) chevron.classList.add("rotate-180");
+            } else {
+                content.classList.add("hidden");
+                if (chevron) chevron.classList.remove("rotate-180");
+            }
+        }
+
+        // Alle Felder auf- oder zuklappen
+        function toggleAllAccordions(open) {
+            ALPHABET.forEach(letter => {
+                const content = document.getElementById(`content-${letter}`);
+                const chevron = document.getElementById(`chevron-${letter}`);
+                if (!content || content.children.length === 0) return;
+
+                if (open) {
+                    content.classList.remove("hidden");
+                    if (chevron) chevron.classList.add("rotate-180");
+                } else {
+                    content.classList.add("hidden");
+                    if (chevron) chevron.classList.remove("rotate-180");
+                }
+            });
+        }
+
+        // Über die rechte Leiste zu einem Buchstaben springen & automatisch öffnen
+        function jumpToLetter(letter) {
+            const section = document.getElementById(`section-${letter}`);
+            const content = document.getElementById(`content-${letter}`);
+            const chevron = document.getElementById(`chevron-${letter}`);
+            
+            if (section) {
+                if (content && content.classList.contains("hidden")) {
+                    content.classList.remove("hidden");
+                    if (chevron) chevron.classList.add("rotate-180");
+                }
+                const yOffset = -90; 
+                const y = section.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+            }
+        }
+
+        // Vorschau-Modal öffnen
+        function openPreview(title, url) {
+            document.getElementById("modalTitle").textContent = title;
+            document.getElementById("previewFrame").src = url;
+            document.getElementById("modalDownloadBtn").href = url;
+            document.getElementById("previewModal").classList.remove("hidden");
+        }
+
+        // Vorschau-Modal schließen
+        function closePreview() {
+            document.getElementById("previewModal").classList.add("hidden");
+            document.getElementById("previewFrame").src = "";
+        }
+
+        // Touch-Wischen auf der rechten Buchstabenleiste unterstützen
+        sidebar.addEventListener("touchmove", (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target && target.tagName === "BUTTON" && !target.disabled && target.onclick) {
+                target.click();
+            }
+        }, { passive: false });
+
+        // Live-Suche
+        searchInput.addEventListener("input", (e) => {
+            const val = e.target.value;
+            clearSearchBtn.classList.toggle("hidden", val === "");
+            renderDashboard(val);
+        });
+
+        clearSearchBtn.addEventListener("click", () => {
+            searchInput.value = "";
+            clearSearchBtn.classList.add("hidden");
+            renderDashboard("");
+        });
+
+        // Initiales Rendern
+        renderDashboard();
+    </script>
+</body>
+</html>

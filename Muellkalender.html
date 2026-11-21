@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e6f62">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Abfallkalender Waldheim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: Kopfzeile, vier Tonnen-Kacheln mit der jeweils nächsten Abholung, darunter Monatsraster links und Tagesdetail plus Liste rechts. */
+:root {
+  --bg: #eef1f0;
+  --surface: #ffffff;
+  --surface-2: #e6ebe9;
+  --fg: #172321;
+  --muted: #566562;
+  --line: #d3dbd8;
+  --accent: #0e6f62;
+  --accent-on: #ffffff;
+  --c-rest: #3d4548;
+  --c-rest-on: #ffffff;
+  --c-bio: #3f8a35;
+  --c-bio-on: #ffffff;
+  --c-leicht: #f0c20a;
+  --c-leicht-on: #231d00;
+  --c-papier: #2c6db4;
+  --c-papier-on: #ffffff;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101716;
+    --surface: #182120;
+    --surface-2: #213030;
+    --fg: #e8efed;
+    --muted: #9bacA8;
+    --line: #2b3a38;
+    --accent: #4cc5b3;
+    --accent-on: #06201c;
+    --c-rest: #8e9a9e;
+    --c-rest-on: #11181a;
+    --c-bio: #5fb350;
+    --c-bio-on: #081905;
+    --c-leicht: #f2c92e;
+    --c-leicht-on: #231d00;
+    --c-papier: #5b9be0;
+    --c-papier-on: #07172a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101716;
+  --surface: #182120;
+  --surface-2: #213030;
+  --fg: #e8efed;
+  --muted: #9bacA8;
+  --line: #2b3a38;
+  --accent: #4cc5b3;
+  --accent-on: #06201c;
+  --c-rest: #8e9a9e;
+  --c-rest-on: #11181a;
+  --c-bio: #5fb350;
+  --c-bio-on: #081905;
+  --c-leicht: #f2c92e;
+  --c-leicht-on: #231d00;
+  --c-papier: #5b9be0;
+  --c-papier-on: #07172a;
+  color-scheme: dark;
+}
+
+:root { color-scheme: light; }
+body { margin: 0; }
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+header h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+header p { margin: 6px 0 0; color: var(--muted); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.tile .name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--c); flex: none; }
+.tile .when { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.01em; }
+.tile .rel { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.tile.soon { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.btn {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px 6px 10px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.chip[aria-pressed="false"] { color: var(--muted); }
+.chip[aria-pressed="false"] .swatch { background: transparent; box-shadow: inset 0 0 0 2px var(--c); }
+.chip[aria-pressed="true"] { border-color: var(--c); }
+
+.weekdays, .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.weekdays div {
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 6px;
+}
+.day {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 84px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.day:hover { border-color: var(--accent); }
+.day.blank { visibility: hidden; border: 0; }
+.day .num { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; min-width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 12px; }
+.day.weekend .num { color: var(--muted); }
+.day.today .num { background: var(--accent); color: var(--accent-on); }
+.day.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--surface-2); }
+.pills { display: flex; flex-direction: column; gap: 3px; width: 100%; min-width: 0; }
+.pill {
+  background: var(--c);
+  color: var(--on);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.panel h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.detail .date { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+.detail ul, .upcoming ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.detail li { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.detail .none { color: var(--muted); font-weight: 400; }
+
+.upcoming li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.upcoming li:first-child { border-top: 0; padding-top: 0; }
+.dateblock {
+  background: var(--surface-2);
+  border-radius: 8px;
+  text-align: center;
+  padding: 4px 0 5px;
+  font-variant-numeric: tabular-nums;
+}
+.dateblock small { display: block; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.dateblock strong { font-family: var(--font-display); font-size: 20px; line-height: 1.1; }
+.upcoming .what { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; min-width: 0; }
+.upcoming .rel { color: var(--muted); font-size: 13px; width: 100%; }
+.upcoming .pill { font-size: 12px; padding: 4px 7px; }
+
+.note { color: var(--muted); font-size: 13px; margin: 0; max-width: 70ch; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .panel { padding: 12px; }
+  .day { min-height: 56px; padding: 4px; align-items: center; }
+  .pills { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 3px; }
+  .pill { font-size: 0; padding: 0; width: 9px; height: 9px; border-radius: 50%; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile .when { font-size: 18px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .day, .btn, .chip { transition: border-color 0.12s ease, background-color 0.12s ease; }
+}
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <header>
+    <h1>Abfallkalender Waldheim</h1>
+    <p>Talstraße · alle Abholtermine 2026 und 2027</p>
+  </header>
+
+  <section class="tiles" id="tiles" aria-label="Nächste Abholung je Tonne"></section>
+
+  <div class="layout">
+    <section class="panel" aria-label="Monatskalender">
+      <div class="toolbar">
+        <h2 id="monthTitle"></h2>
+        <button class="btn" id="prev" type="button" aria-label="Vorheriger Monat">&larr;</button>
+        <button class="btn" id="todayBtn" type="button">Heute</button>
+        <button class="btn" id="next" type="button" aria-label="Nächster Monat">&rarr;</button>
+      </div>
+      <div class="filters" id="filters" role="group" aria-label="Tonnen ein- und ausblenden"></div>
+      <div class="weekdays" aria-hidden="true"><div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div><div>So</div></div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <div class="side">
+      <section class="panel detail" aria-live="polite">
+        <h3>Ausgewählter Tag</h3>
+        <div id="detail"></div>
+      </section>
+      <section class="panel upcoming">
+        <h3>Als Nächstes</h3>
+        <ul id="upcoming"></ul>
+      </section>
+    </div>
+  </div>
+
+  <p class="note">Die Datei für 2026 enthält keine Bio-Termine. Bio erscheint deshalb erst ab Januar 2027. Termine an Feiertagen können sich verschieben, bitte beim Entsorger prüfen.</p>
+</main>
+
+<script>
+const DATA = {"Papier":["2026-01-23","2026-02-20","2026-03-20","2026-04-17","2026-05-16","2026-06-12","2026-07-10","2026-08-07","2026-09-04","2026-10-02","2026-10-30","2026-11-27","2026-12-24","2027-01-22","2027-02-19","2027-03-19","2027-04-16","2027-05-14","2027-06-11","2027-07-09","2027-08-06","2027-09-03","2027-10-01","2027-10-29","2027-11-26","2027-12-24"],"Leichtstoffe":["2026-01-12","2026-01-26","2026-02-09","2026-02-23","2026-03-09","2026-03-23","2026-04-07","2026-04-20","2026-05-04","2026-05-18","2026-06-01","2026-06-15","2026-06-29","2026-07-13","2026-07-27","2026-08-10","2026-08-24","2026-09-07","2026-09-21","2026-10-05","2026-10-19","2026-11-02","2026-11-16","2026-11-30","2026-12-14","2026-12-28","2027-01-11","2027-01-25","2027-02-08","2027-02-22","2027-03-08","2027-03-20","2027-04-05","2027-04-19","2027-05-03","2027-05-18","2027-05-31","2027-06-14","2027-06-28","2027-07-12","2027-07-26","2027-08-09","2027-08-23","2027-09-06","2027-09-20","2027-10-04","2027-10-18","2027-11-01","2027-11-15","2027-11-29","2027-12-13","2027-12-27"],"Restmüll":["2026-01-05","2026-01-19","2026-02-02","2026-02-16","2026-03-02","2026-03-16","2026-03-30","2026-04-13","2026-04-27","2026-05-11","2026-05-26","2026-06-08","2026-06-22","2026-07-06","2026-07-20","2026-08-03","2026-08-17","2026-08-31","2026-09-14","2026-09-28","2026-10-12","2026-10-26","2026-11-09","2026-11-23","2026-12-07","2026-12-19","2027-01-04","2027-01-18","2027-02-01","2027-02-15","2027-03-01","2027-03-15","2027-03-30","2027-04-12","2027-04-26","2027-05-10","2027-05-24","2027-06-07","2027-06-21","2027-07-05","2027-07-19","2027-08-02","2027-08-16","2027-08-30","2027-09-13","2027-09-27","2027-10-11","2027-10-25","2027-11-08","2027-11-22","2027-12-06","2027-12-20"],"Bio":["2027-01-07","2027-01-21","2027-02-04","2027-02-18","2027-03-04","2027-03-18","2027-04-02","2027-04-15","2027-04-29","2027-05-13","2027-05-27","2027-06-10","2027-06-24","2027-07-08","2027-07-22","2027-08-05","2027-08-19","2027-09-02","2027-09-16","2027-09-30","2027-10-14","2027-10-28","2027-11-11","2027-11-25","2027-12-09","2027-12-23"]};
+
+const TYPES = [
+  { id: 'Restmüll',     css: 'rest' },
+  { id: 'Bio',          css: 'bio' },
+  { id: 'Leichtstoffe', css: 'leicht' },
+  { id: 'Papier',       css: 'papier' }
+];
+const MIN = { y: 2026, m: 0 };
+const MAX = { y: 2027, m: 11 };
+
+const typeVars = t => `--c:var(--c-${t.css});--on:var(--c-${t.css}-on)`;
+const typeById = Object.fromEntries(TYPES.map(t => [t.id, t]));
+
+const byDate = {};
+for (const t of TYPES) {
+  for (const d of (DATA[t.id] || [])) (byDate[d] = byDate[d] || []).push(t.id);
+}
+
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const fmt = (d, o) => new Intl.DateTimeFormat('de-DE', o).format(d);
+const now = new Date();
+const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const todayIso = iso(today);
+const diffDays = (a, b) => Math.round((b - a) / 864e5);
+const rel = n => n === 0 ? 'heute' : n === 1 ? 'morgen' : n === 2 ? 'übermorgen' : `in ${n} Tagen`;
+
+const state = { y: today.getFullYear(), m: today.getMonth(), selected: todayIso, active: new Set(TYPES.map(t => t.id)) };
+clampView();
+
+function clampView() {
+  const v = state.y * 12 + state.m;
+  const lo = MIN.y * 12 + MIN.m, hi = MAX.y * 12 + MAX.m;
+  const c = Math.min(hi, Math.max(lo, v));
+  state.y = Math.floor(c / 12);
+  state.m = c % 12;
+}
+
+function nextFor(typeId) {
+  const list = DATA[typeId] || [];
+  const d = list.find(s => s >= todayIso);
+  return d || null;
+}
+
+function renderTiles() {
+  document.getElementById('tiles').innerHTML = TYPES.map(t => {
+    const d = nextFor(t.id);
+    if (!d) return `<div class="tile" style="${typeVars(t)}"><div class="name"><span class="swatch"></span>${t.id}</div><div class="when">–</div><div class="rel">keine Termine mehr</div></div>`;
+    const date = parse(d);
+    const n = diffDays(today, date);
+    return `<div class="tile${n <= 1 ? ' soon' : ''}" style="${typeVars(t)}">
+      <div class="name"><span class="swatch"></span>${t.id}</div>
+      <div class="when">${fmt(date, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+      <div class="rel">${rel(n)}</div></div>`;
+  }).join('');
+}
+
+function renderFilters() {
+  const el = document.getElementById('filters');
+  el.innerHTML = TYPES.map(t =>
+    `<button class="chip" type="button" data-type="${t.id}" aria-pressed="${state.active.has(t.id)}" style="${typeVars(t)}"><span class="swatch"></span>${t.id}</button>`
+  ).join('');
+}
+
+function renderGrid() {
+  const first = new Date(state.y, state.m, 1);
+  const days = new Date(state.y, state.m + 1, 0).getDate();
+  const lead = (first.getDay() + 6) % 7;
+  document.getElementById('monthTitle').textContent = fmt(first, { month: 'long', year: 'numeric' });
+  let html = '';
+  for (let i = 0; i < lead; i++) html += '<div class="day blank"></div>';
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(state.y, state.m, d);
+    const key = iso(date);
+    const ev = (byDate[key] || []).filter(id => state.active.has(id));
+    const wd = date.getDay();
+    const cls = ['day', (wd === 0 || wd === 6) ? 'weekend' : '', key === todayIso ? 'today' : '', key === state.selected ? 'selected' : ''].join(' ').replace(/\s+/g, ' ').trim();
+    const label = fmt(date, { weekday: 'long', day: 'numeric', month: 'long' }) + (ev.length ? ': ' + ev.join(', ') : ': keine Abholung');
+    html += `<button type="button" class="${cls}" data-date="${key}" aria-label="${label}"><span class="num">${d}</span><span class="pills">` +
+      ev.map(id => `<span class="pill" style="${typeVars(typeById[id])}">${id}</span>`).join('') + '</span></button>';
+  }
+  document.getElementById('grid').innerHTML = html;
+  document.getElementById('prev').disabled = state.y * 12 + state.m <= MIN.y * 12 + MIN.m;
+  document.getElementById('next').disabled = state.y * 12 + state.m >= MAX.y * 12 + MAX.m;
+}
+
+function renderDetail() {
+  const date = parse(state.selected);
+  const ev = byDate[state.selected] || [];
+  const n = diffDays(today, date);
+  const head = fmt(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const relTxt = n >= 0 && n <= 2 ? ` (${rel(n)})` : '';
+  document.getElementById('detail').innerHTML =
+    `<p class="date">${head}${relTxt}</p>` +
+    (ev.length
+      ? '<ul>' + ev.map(id => `<li style="${typeVars(typeById[id])}"><span class="swatch"></span>${id}</li>`).join('') + '</ul>'
+      : '<p class="none">An diesem Tag wird nichts abgeholt.</p>');
+}
+
+function renderUpcoming() {
+  const keys = Object.keys(byDate).sort().filter(k => k >= todayIso && byDate[k].some(id => state.active.has(id))).slice(0, 8);
+  document.getElementById('upcoming').innerHTML = keys.length ? keys.map(k => {
+    const date = parse(k);
+    const ev = byDate[k].filter(id => state.active.has(id));
+    return `<li><div class="dateblock"><small>${fmt(date, { weekday: 'short' }).replace('.', '')}</small><strong>${date.getDate()}</strong><small>${fmt(date, { month: 'short' }).replace('.', '')}</small></div>
+      <div class="what"><span class="rel">${rel(diffDays(today, date))}</span>` +
+      ev.map(id => `<span class="pill" style="${typeVars(typeById[id])}">${id}</span>`).join('') + '</div></li>';
+  }).join('') : '<li>Keine weiteren Termine.</li>';
+}
+
+function renderAll() { renderFilters(); renderGrid(); renderDetail(); renderUpcoming(); }
+
+document.getElementById('prev').addEventListener('click', () => { state.m--; if (state.m < 0) { state.m = 11; state.y--; } clampView(); renderGrid(); });
+document.getElementById('next').addEventListener('click', () => { state.m++; if (state.m > 11) { state.m = 0; state.y++; } clampView(); renderGrid(); });
+document.getElementById('todayBtn').addEventListener('click', () => {
+  state.y = today.getFullYear(); state.m = today.getMonth(); state.selected = todayIso; clampView(); renderGrid(); renderDetail();
+});
+document.getElementById('grid').addEventListener('click', e => {
+  const b = e.target.closest('.day[data-date]');
+  if (!b) return;
+  state.selected = b.dataset.date;
+  renderGrid(); renderDetail();
+});
+document.getElementById('filters').addEventListener('click', e => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  const id = b.dataset.type;
+  if (state.active.has(id)) state.active.delete(id); else state.active.add(id);
+  renderFilters(); renderGrid(); renderUpcoming();
+});
+
+renderTiles();
+renderAll();
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  const n = new Date();
+  if (iso(new Date(n.getFullYear(), n.getMonth(), n.getDate())) !== todayIso) location.reload();
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+
+</body>
+</html>
