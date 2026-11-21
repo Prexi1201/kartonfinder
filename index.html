@@ -587,7 +587,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  $("#btnConnectFile").addEventListener("click", connectJsonFile);
+  $("#btnsave").addEventListener("click", connectJsonFile);
 
   function saveItem(it) {
     var i = items.findIndex(function (x) { return x.id === it.id; });
