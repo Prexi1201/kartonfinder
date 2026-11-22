@@ -345,7 +345,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
 
 <script>
 (function () {
-  var \$ = function (s) { return document.querySelector(s); };
+  var $ = function (s) { return document.querySelector(s); };
   var LS_KEY = "kartonfinder-v1";
 
   /* ---------- GitHub Gist Konfiguration ---------- */
@@ -369,14 +369,14 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
   }
   function fmt(n) { return Number(n).toLocaleString("de-DE", { maximumFractionDigits: 1 }); }
   function num(v) {
-    var n = parseFloat(String(v).trim().replace(",", "."));
+    var n = parseFloat(String(v == null ? "" : v).trim().replace(",", "."));
     return isFinite(n) ? n : NaN;
   }
   function vol(it) { return it.h * it.b * it.t; }
   function title(it) { return it.name || ("Karton " + fmt(it.h) + " × " + fmt(it.b) + " × " + fmt(it.t)); }
   function genId() { return "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function toast(msg) {
-    var el = \$("#toast");
+    var el = $("#toast");
     el.textContent = msg;
     el.classList.add("on");
     clearTimeout(toast.t);
@@ -435,19 +435,460 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
     ["XXL-Paket", 200, null, null, 33.99]
   ];
   function eur(n) { return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €"; }
-  function setStandDefault() { \$("#f-stand").value = new Date() >= new Date(2027, 0, 1) ? "next" : "now"; }
+  function setStandDefault() { $("#f-stand").value = new Date() >= new Date(2027, 0, 1) ? "next" : "now"; }
   function shipSettings() {
-    var kg = num(\$("#f-kg").value);
-    return { stand: $("#f-stand").value \vert{}\vert{} "now", kg: kg > 0 ? kg : 0, shop: $("#f-shop").checked };
+    var kg = num($("#f-kg").value);
+    return { stand: $("#f-stand").value || "now", kg: kg > 0 ? kg : 0, shop: $("#f-shop").checked };
   }
   function dhlBest(d, kg, stand) {
     var s = d.slice().sort(function (x, y) { return y - x; }), best = null;
     DHL[stand].rows.forEach(function (r) {
-      var mx = r[1];
+      var mx = r[1].slice().sort(function (x, y) { return y - x; });
       if (kg > r[2] + 1e-9) return;
       if (s[0] > mx[0] || s[1] > mx[1] || s[2] > mx[2]) return;
       if (r[4] && s[0] + 2 * s[1] + 2 * s[2] > 300) return;
-      if (!best ||
-          </script>
+      if (!best || r[3] < best.price) {
+        best = { name: r[0], price: r[3], note: r[5] };
+      }
+    });
+    return best;
+  }
+  function hermesBest(d, kg, shop) {
+    var s = d.slice().sort(function (x, y) { return y - x; });
+    var longestPlusShortest = s[0] + s[2];
+    for (var i = 0; i < HERMES.length; i++) {
+      var r = HERMES[i];
+      if (longestPlusShortest > r[1]) continue;
+      if (r[4] != null) {
+        if (kg <= 31.5 + 1e-9) return { name: r[0], price: r[4], note: "bis 31,5 kg" };
+      } else {
+        if (kg <= 25 + 1e-9) {
+          var p = shop ? r[2] : r[3];
+          return { name: r[0], price: p, note: shop ? "PaketShop" : "Haustür" };
+        }
+      }
+    }
+    return null;
+  }
+  function shipHtml(it, cfg) {
+    var d = [it.h, it.b, it.t];
+    var dhl = dhlBest(d, cfg.kg, cfg.stand);
+    var hermes = hermesBest(d, cfg.kg, cfg.shop);
+    var dhlPrice = dhl ? dhl.price : Infinity;
+    var hermesPrice = hermes ? hermes.price : Infinity;
+    var cheaper = null;
+    if (dhl && hermes) {
+      if (dhlPrice < hermesPrice - 1e-9) cheaper = "dhl";
+      else if (hermesPrice < dhlPrice - 1e-9) cheaper = "hermes";
+    }
+    var h = '<div class="shipwrap">';
+    if (dhl) {
+      h += '<span class="opt' + (cheaper === "dhl" ? " best" : "") + '">DHL ' + esc(dhl.name) + ' <b>' + eur(dhl.price) + '</b>' +
+        (dhl.note ? ' <small>(' + esc(dhl.note) + ')</small>' : '') +
+        (cheaper === "dhl" ? ' <em>günstiger</em>' : '') + '</span>';
+    } else {
+      h += '<span class="opt na">DHL: kein Tarif</span>';
+    }
+    if (hermes) {
+      h += '<span class="opt' + (cheaper === "hermes" ? " best" : "") + '">Hermes ' + esc(hermes.name) + ' <b>' + eur(hermes.price) + '</b>' +
+        (hermes.note ? ' <small>(' + esc(hermes.note) + ')</small>' : '') +
+        (cheaper === "hermes" ? ' <em>günstiger</em>' : '') + '</span>';
+    } else {
+      h += '<span class="opt na">Hermes: kein Tarif</span>';
+    }
+    return h + "</div>";
+  }
+
+  /* ---------- Passgenauigkeit ---------- */
+  function fits(box, prod, rot) {
+    var b = [box.h, box.b, box.t];
+    var p = [prod.h, prod.b, prod.t];
+    if (!rot) {
+      return p[0] <= b[0] + 1e-9 && p[1] <= b[1] + 1e-9 && p[2] <= b[2] + 1e-9;
+    }
+    var bs = b.slice().sort(function (x, y) { return x - y; });
+    var ps = p.slice().sort(function (x, y) { return x - y; });
+    return ps[0] <= bs[0] + 1e-9 && ps[1] <= bs[1] + 1e-9 && ps[2] <= bs[2] + 1e-9;
+  }
+
+  /* ---------- Speicherung (LocalStorage + GitHub Gist) ---------- */
+  function saveLocal() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(items)); } catch (e) {}
+  }
+  function loadLocal() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (e) { return null; }
+  }
+  function normalizeItem(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    var h = num(raw.h), b = num(raw.b), t = num(raw.t);
+    var qty = parseInt(raw.qty, 10);
+    if (!(h > 0 && b > 0 && t > 0)) return null;
+    return {
+      id: String(raw.id || genId()),
+      name: String(raw.name || "").trim(),
+      loc: String(raw.loc || "").trim(),
+      h: h, b: b, t: t,
+      qty: isFinite(qty) && qty >= 0 ? qty : 0,
+      desc: String(raw.desc || "").trim(),
+      createdAt: Number(raw.createdAt) || Date.now()
+    };
+  }
+  function setStatus(ok, text) {
+    var bar = $("#fileBar");
+    bar.classList.toggle("connected", !!ok);
+    $("#fileStatus").textContent = text;
+  }
+  function syncFromGist(showToast) {
+    setStatus(false, "Lade Daten aus GitHub Gist (" + GIST_FILE + ") …");
+    var headers = { "Accept": "application/vnd.github+json" };
+    if (GITHUB_TOKEN) headers["Authorization"] = "Bearer " + GITHUB_TOKEN;
+    return fetch(GIST_API_URL + "?t=" + Date.now(), { headers: headers })
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        var f = data && data.files && data.files[GIST_FILE];
+        if (!f || typeof f.content !== "string") throw new Error("Datei nicht im Gist");
+        var parsed = JSON.parse(f.content);
+        if (!Array.isArray(parsed)) throw new Error("Ungültiges JSON-Format");
+        items = parsed.map(normalizeItem).filter(Boolean);
+        loaded = true;
+        saveLocal();
+        setStatus(true, "Verbunden mit GitHub Gist (" + GIST_FILE + ")");
+        render();
+        if (showToast) toast("Bestand aus Gist aktualisiert");
+      })
+      .catch(function (err) {
+        var local = loadLocal();
+        if (local && !loaded) {
+          items = local.map(normalizeItem).filter(Boolean);
+          loaded = true;
+        }
+        setStatus(false, "Gist offline (" + err.message + ") – lokaler Stand aktiv");
+        render();
+        if (showToast) toast("Gist nicht erreichbar: " + err.message);
+      });
+  }
+  function persistItems() {
+    saveLocal();
+    renderStats();
+    writeQueue = writeQueue.then(function () {
+      var headers = {
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json"
+      };
+      if (GITHUB_TOKEN) headers["Authorization"] = "Bearer " + GITHUB_TOKEN;
+      var body = { files: {} };
+      body.files[GIST_FILE] = { content: JSON.stringify(items, null, 2) };
+      return fetch(GIST_API_URL, {
+        method: "PATCH",
+        headers: headers,
+        body: JSON.stringify(body)
+      }).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        setStatus(true, "Gespeichert in GitHub Gist (" + GIST_FILE + ")");
+      }).catch(function (err) {
+        setStatus(false, "Lokaler Stand gespeichert (Gist-Fehler: " + err.message + ")");
+        toast("Gist-Speichern fehlgeschlagen: " + err.message);
+      });
+    });
+    return writeQueue;
+  }
+
+  /* ---------- Rendern ---------- */
+  function renderStats() {
+    var totalQty = 0;
+    for (var i = 0; i < items.length; i++) totalQty += items[i].qty;
+    $("#st-types").textContent = String(items.length);
+    $("#st-qty").textContent = String(totalQty);
+
+    var locs = {}, locList = [];
+    for (var j = 0; j < items.length; j++) {
+      var l = items[j].loc;
+      if (l && !locs[l]) { locs[l] = 1; locList.push(l); }
+    }
+    locList.sort();
+    $("#loc-list").innerHTML = locList.map(function (x) { return '<option value="' + esc(x) + '">'; }).join("");
+  }
+
+  function renderResults() {
+    var h = num($("#f-h").value), b = num($("#f-b").value), t = num($("#f-t").value);
+    var pad = num($("#f-pad").value);
+    var p2 = (isFinite(pad) && pad > 0) ? pad * 2 : 0;
+    var rot = $("#f-rot").checked;
+    var cfg = shipSettings();
+    var boxEl = $("#results");
+    var countEl = $("#res-count");
+
+    if (!(h > 0 && b > 0 && t > 0)) {
+      countEl.textContent = "";
+      boxEl.innerHTML = '<div class="empty"><b>Maße eingeben</b>Gib Höhe, Breite und Tiefe ein, um passende Kartons zu sehen.</div>';
+      return;
+    }
+
+    var prod = { h: h + p2, b: b + p2, t: t + p2 };
+    var pVol = prod.h * prod.b * prod.t;
+
+    var matches = items.filter(function (it) { return fits(it, prod, rot); });
+    matches.sort(function (a, b) {
+      if ((a.qty > 0) !== (b.qty > 0)) return a.qty > 0 ? -1 : 1;
+      return vol(a) - vol(b);
+    });
+
+    var bestId = null;
+    for (var i = 0; i < matches.length; i++) {
+      if (matches[i].qty > 0) { bestId = matches[i].id; break; }
+    }
+
+    countEl.textContent = matches.length + (matches.length === 1 ? " Treffer" : " Treffer");
+    if (!matches.length) {
+      boxEl.innerHTML = '<div class="empty"><b>Kein passender Karton</b>Kein Karton im Bestand ist groß genug für diese Maße' + (p2 > 0 ? " (inkl. Polster)" : "") + ".</div>";
+      return;
+    }
+
+    var html = '<ul class="list">';
+    for (var j = 0; j < matches.length; j++) {
+      var it = matches[j];
+      var isBest = it.id === bestId;
+      var isOut = it.qty <= 0;
+      var fill = Math.min(100, Math.round((pVol / Math.max(vol(it), 1)) * 100));
+      html += '<li class="item' + (isBest ? " best" : "") + (isOut ? " out" : "") + '">';
+      html += boxSvg(it.h, it.b, it.t);
+      html += '<div class="body"><div class="name">' + esc(title(it)) + '</div>';
+      html += '<div>' + dimsHtml(it.h, it.b, it.t) + '</div>';
+      if (it.desc) html += '<div class="desc">' + esc(it.desc) + '</div>';
+      html += '</div>';
+      html += '<div class="side">';
+      if (isBest) html += '<span class="badge ok">Beste Wahl</span>';
+      else if (isOut) html += '<span class="badge warn">Ausverkauft</span>';
+      else html += '<span class="badge">' + it.qty + '× auf Lager</span>';
+      html += '<div class="bar" title="Volumenauslastung ca. ' + fill + '%"><i style="width:' + fill + '%"></i></div>';
+      html += '<span class="fillnote">Füllgrad ~' + fill + '%</span>';
+      html += '</div>';
+      html += '<div class="extra">';
+      html += it.loc ? '<span class="loc">Ort: ' + esc(it.loc) + '</span>' : '<span class="loc none">Kein Lagerort</span>';
+      html += shipHtml(it, cfg);
+      html += '</div></li>';
+    }
+    html += "</ul>";
+    boxEl.innerHTML = html;
+  }
+
+  function renderStock() {
+    var q = ($("#s-q").value || "").trim().toLowerCase();
+    var sort = $("#s-sort").value;
+    var cfg = shipSettings();
+    var stockEl = $("#stock");
+
+    var list = items.filter(function (it) {
+      if (!q) return true;
+      var hay = (it.name + " " + it.loc + " " + it.desc + " " + it.h + " " + it.b + " " + it.t).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+
+    list.sort(function (a, b) {
+      if (sort === "name") return title(a).localeCompare(title(b), "de");
+      if (sort === "vol-asc") return vol(a) - vol(b);
+      if (sort === "vol-desc") return vol(b) - vol(a);
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    if (!list.length) {
+      stockEl.innerHTML = '<div class="empty"><b>Keine Kartons gefunden</b>' +
+        (q ? "Für diesen Suchbegriff gibt es keinen Eintrag." : "Lege deinen ersten Karton an.") +
+        '<div class="btn-row"><button type="button" class="btn primary sm" id="btnEmptyAdd">+ Karton hinzufügen</button></div></div>';
+      var bEmpty = $("#btnEmptyAdd");
+      if (bEmpty) bEmpty.addEventListener("click", function () { openForm(null); });
+      return;
+    }
+
+    var html = '<ul class="list">';
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i];
+      var isConf = pendingDelete === it.id;
+      html += '<li class="item' + (it.qty <= 0 ? " out" : "") + '">';
+      html += boxSvg(it.h, it.b, it.t);
+      html += '<div class="body"><div class="name">' + esc(title(it)) + '</div>';
+      html += '<div>' + dimsHtml(it.h, it.b, it.t) + '</div>';
+      if (it.desc) html += '<div class="desc">' + esc(it.desc) + '</div>';
+      html += '</div>';
+      html += '<div class="side">';
+      html += '<div class="qty"><button type="button" data-act="dec" data-id="' + esc(it.id) + '" aria-label="Anzahl verringern">−</button>' +
+        '<output>' + it.qty + '</output>' +
+        '<button type="button" data-act="inc" data-id="' + esc(it.id) + '" aria-label="Anzahl erhöhen">+</button></div>';
+      html += '<div class="row-actions"><button type="button" class="btn sm" data-act="edit" data-id="' + esc(it.id) + '">Bearbeiten</button>';
+      if (isConf) {
+        html += '<button type="button" class="btn sm danger" data-act="del-confirm" data-id="' + esc(it.id) + '">Wirklich löschen?</button>';
+      } else {
+        html += '<button type="button" class="btn sm" data-act="del" data-id="' + esc(it.id) + '">Löschen</button>';
+      }
+      html += '</div></div>';
+      html += '<div class="extra">';
+      html += it.loc ? '<span class="loc">Ort: ' + esc(it.loc) + '</span>' : '<span class="loc none">Kein Lagerort</span>';
+      html += shipHtml(it, cfg);
+      html += '</div></li>';
+    }
+    html += "</ul>";
+    stockEl.innerHTML = html;
+  }
+
+  function renderBasis() {
+    var stand = $("#f-stand").value || "now";
+    var dhlRows = DHL[stand].rows;
+    var h = "<h4>DHL (" + esc(DHL[stand].label) + ")</h4><div class=\"tbl\"><table><thead><tr><th>Tarif</th><th>Max. Maße (cm)</th><th>Max. kg</th><th>Preis</th><th>Hinweis</th></tr></thead><tbody>";
+    for (var i = 0; i < dhlRows.length; i++) {
+      var r = dhlRows[i];
+      h += "<tr><td>" + esc(r[0]) + "</td><td>" + r[1].join(" × ") + "</td><td>" + fmt(r[2]) + "</td><td>" + eur(r[3]) + "</td><td>" + esc(r[5] || "–") + "</td></tr>";
+    }
+    h += "</tbody></table></div><h4>Hermes (kürzeste + längste Seite)</h4><div class=\"tbl\"><table><thead><tr><th>Klasse</th><th>Max. cm</th><th>Shop</th><th>Haustür</th><th>XL/XXL</th></tr></thead><tbody>";
+    for (var j = 0; j < HERMES.length; j++) {
+      var x = HERMES[j];
+      h += "<tr><td>" + esc(x[0]) + "</td><td>" + x[1] + "</td><td>" + (x[2] != null ? eur(x[2]) : "–") + "</td><td>" + (x[3] != null ? eur(x[3]) : "–") + "</td><td>" + (x[4] != null ? eur(x[4]) : "–") + "</td></tr>";
+    }
+    h += "</tbody></table></div><ul><li>Versandberechnung orientiert sich an Außenmaßen und Gewicht des Pakets.</li></ul>";
+    $("#basisBody").innerHTML = h;
+  }
+
+  function render() {
+    renderStats();
+    renderResults();
+    renderStock();
+    renderBasis();
+  }
+
+  /* ---------- Formular Bestand ---------- */
+  function openForm(id) {
+    editingId = id || null;
+    $("#formErr").textContent = "";
+    var form = $("#addForm");
+    form.hidden = false;
+    if (editingId) {
+      var it = items.find(function (x) { return x.id === editingId; });
+      if (!it) return;
+      $("#addTitle").textContent = "Karton bearbeiten";
+      $("#a-name").value = it.name;
+      $("#a-loc").value = it.loc;
+      $("#a-h").value = it.h;
+      $("#a-b").value = it.b;
+      $("#a-t").value = it.t;
+      $("#a-qty").value = it.qty;
+      $("#a-desc").value = it.desc;
+    } else {
+      $("#addTitle").textContent = "Neuer Karton";
+      $("#a-name").value = "";
+      $("#a-loc").value = "";
+      $("#a-h").value = "";
+      $("#a-b").value = "";
+      $("#a-t").value = "";
+      $("#a-qty").value = "1";
+      $("#a-desc").value = "";
+    }
+    $("#a-h").focus();
+  }
+  function closeForm() {
+    editingId = null;
+    $("#formErr").textContent = "";
+    $("#addForm").hidden = true;
+  }
+
+  $("#btnAdd").addEventListener("click", function () { openForm(null); });
+  $("#btnCancel").addEventListener("click", closeForm);
+
+  $("#addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var h = num($("#a-h").value), b = num($("#a-b").value), t = num($("#a-t").value);
+    var qty = parseInt($("#a-qty").value, 10);
+    if (!(h > 0 && b > 0 && t > 0)) {
+      $("#formErr").textContent = "Bitte gültige Maße größer als 0 für Höhe, Breite und Tiefe eingeben.";
+      return;
+    }
+    if (!isFinite(qty) || qty < 0) {
+      $("#formErr").textContent = "Bitte eine Anzahl von 0 oder mehr eingeben.";
+      return;
+    }
+    var entry = {
+      id: editingId || genId(),
+      name: $("#a-name").value.trim(),
+      loc: $("#a-loc").value.trim(),
+      h: h, b: b, t: t,
+      qty: qty,
+      desc: $("#a-desc").value.trim(),
+      createdAt: editingId
+        ? ((items.find(function (x) { return x.id === editingId; }) || {}).createdAt || Date.now())
+        : Date.now()
+    };
+    if (editingId) {
+      items = items.map(function (x) { return x.id === editingId ? entry : x; });
+      toast("Karton aktualisiert");
+    } else {
+      items.unshift(entry);
+      toast("Karton hinzugefügt");
+    }
+    closeForm();
+    render();
+    persistItems();
+  });
+
+  $("#stock").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var act = btn.getAttribute("data-act");
+    var id = btn.getAttribute("data-id");
+    var it = items.find(function (x) { return x.id === id; });
+    if (!it) return;
+
+    if (act === "inc") {
+      it.qty += 1;
+      render();
+      persistItems();
+    } else if (act === "dec") {
+      if (it.qty > 0) {
+        it.qty -= 1;
+        render();
+        persistItems();
+      }
+    } else if (act === "edit") {
+      openForm(id);
+    } else if (act === "del") {
+      pendingDelete = id;
+      clearTimeout(pendingTimer);
+      pendingTimer = setTimeout(function () { pendingDelete = null; renderStock(); }, 4000);
+      renderStock();
+    } else if (act === "del-confirm") {
+      clearTimeout(pendingTimer);
+      pendingDelete = null;
+      items = items.filter(function (x) { return x.id !== id; });
+      toast("Karton gelöscht");
+      render();
+      persistItems();
+    }
+  });
+
+  /* Filter & Suchfelder */
+  ["#f-h", "#f-b", "#f-t", "#f-pad", "#f-kg", "#f-rot", "#f-shop"].forEach(function (sel) {
+    $(sel).addEventListener("input", renderResults);
+    $(sel).addEventListener("change", renderResults);
+  });
+  $("#f-stand").addEventListener("change", function () {
+    renderBasis();
+    renderResults();
+    renderStock();
+  });
+  $("#s-q").addEventListener("input", renderStock);
+  $("#s-sort").addEventListener("change", renderStock);
+  $("#btnSyncNow").addEventListener("click", function () { syncFromGist(true); });
+
+  /* Start */
+  setStandDefault();
+  render();
+  syncFromGist(false);
+})();
+</script>
 </body>
 </html>
