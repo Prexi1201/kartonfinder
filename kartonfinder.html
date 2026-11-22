@@ -349,17 +349,27 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
   var LS_KEY = "kartonfinder-v1";
 
   /* ---------- GitHub Gist Konfiguration ---------- */
-  var GIST_ID = "5d3dff1de6b263133af07ba4533e5e4f718fe337";
-  var GIST_FILE = "daten.json";
-  var GITHUB_TOKEN = "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";
-  var GIST_API_URL = "https://api.github.com/gists/" + GIST_ID;
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-  var items = [];
-  var loaded = false;
-  var writeQueue = Promise.resolve();
-  var editingId = null;
-  var pendingDelete = null;
-  var pendingTimer = null;
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyB8OzBJh_TyZJMT54onPYKBwgPblfLpx60",
+  authDomain: "dashboard-47fe5.firebaseapp.com",
+  projectId: "dashboard-47fe5",
+  storageBucket: "dashboard-47fe5.firebasestorage.app",
+  messagingSenderId: "300971945799",
+  appId: "1:300971945799:web:f2b45b05f41bebdb8b6662",
+  measurementId: "G-7YYKEDSDGF"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
   /* ---------- Helfer ---------- */
   function esc(s) {
