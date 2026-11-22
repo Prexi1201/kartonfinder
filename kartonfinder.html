@@ -100,6 +100,27 @@ p { margin: 0; }
 button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
+/* Login-Screen */
+.auth-wrap {
+  min-height: calc(100vh - 100px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+}
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: 12px;
+  padding: 24px;
+}
+.auth-card h1 { font-size: 1.6rem; margin-bottom: 6px; }
+.auth-card .lead { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+.user-tag { color: var(--muted); font-size: 0.82rem; font-family: var(--font-mono); overflow-wrap: anywhere; }
+
 /* Kopf & Speicherleiste */
 .top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; margin-bottom: 16px; }
 .top .lead { color: var(--muted); margin-top: 6px; max-width: 46ch; }
@@ -114,7 +135,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 10px 14px; margin-bottom: 20px;
 }
 .filebar.connected { border-color: var(--ok); background: var(--ok-soft); }
-.filebar-info { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
+.filebar-info { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; flex-wrap: wrap; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
 .filebar.connected .dot { background: var(--ok); }
 
@@ -150,8 +171,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
 /* Buttons */
 .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
 .btn:hover { background: var(--surface-2); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn.primary:hover { filter: brightness(1.08); }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .btn.sm { padding: 5px 10px; font-size: 0.82rem; }
 .btn.danger { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -236,7 +258,26 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
 </head>
 <body>
 
-<div class="wrap">
+<!-- Login-Ansicht -->
+<div class="auth-wrap" id="authView">
+  <form class="auth-card" id="loginForm" autocomplete="on" novalidate>
+    <h1>Kartonfinder</h1>
+    <p class="lead">Bitte mit deiner E-Mail-Adresse und deinem Passwort anmelden.</p>
+    <div class="stack">
+      <label class="f" for="l-email">E-Mail-Adresse
+        <span class="in"><input id="l-email" type="email" autocomplete="username" placeholder="name@beispiel.de"></span>
+      </label>
+      <label class="f" for="l-pass">Passwort
+        <span class="in"><input id="l-pass" type="password" autocomplete="current-password" placeholder="Dein Passwort"></span>
+      </label>
+      <div class="form-err" id="loginErr" role="alert"></div>
+      <button type="submit" class="btn primary" id="btnLogin">Einloggen</button>
+    </div>
+  </form>
+</div>
+
+<!-- Haupt-App (erst nach Login sichtbar) -->
+<div class="wrap" id="appView" hidden>
   <header class="top">
     <div>
       <h1>Kartonfinder</h1>
@@ -252,8 +293,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
     <div class="filebar-info">
       <span class="dot" aria-hidden="true"></span>
       <span id="fileStatus">Verbinde mit Firebase Firestore …</span>
+      <span class="user-tag" id="userEmail"></span>
     </div>
-    <button type="button" class="btn sm" id="btnSyncNow">Jetzt neu laden</button>
+    <div class="btn-row">
+      <button type="button" class="btn sm" id="btnSyncNow">Jetzt neu laden</button>
+      <button type="button" class="btn sm" id="btnLogout">Ausloggen</button>
+    </div>
   </div>
 
   <div class="layout">
@@ -345,6 +390,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -358,6 +404,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 const stockDocRef = doc(db, "kartonfinder", "bestand");
 
@@ -554,6 +601,7 @@ const stockDocRef = doc(db, "kartonfinder", "bestand");
     $("#fileStatus").textContent = text;
   }
   function syncFromFirebase(showToast) {
+    if (!auth.currentUser) return Promise.resolve();
     setStatus(false, "Lade Daten aus Firebase Firestore …");
     return getDoc(stockDocRef)
       .then(function (snap) {
@@ -579,6 +627,7 @@ const stockDocRef = doc(db, "kartonfinder", "bestand");
   function persistItems() {
     saveLocal();
     renderStats();
+    if (!auth.currentUser) return Promise.resolve();
     writeQueue = writeQueue.then(function () {
       return setDoc(stockDocRef, { items: items, updatedAt: Date.now() })
         .then(function () {
@@ -788,6 +837,64 @@ const stockDocRef = doc(db, "kartonfinder", "bestand");
     $("#addForm").hidden = true;
   }
 
+  /* ---------- Login & Logout ---------- */
+  function mapAuthError(err) {
+    var code = err && err.code ? err.code : "";
+    if (code === "auth/invalid-email") return "Bitte eine gültige E-Mail-Adresse eingeben.";
+    if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+      return "E-Mail-Adresse oder Passwort ist falsch.";
+    }
+    if (code === "auth/too-many-requests") return "Zu viele Versuche. Bitte kurz warten und erneut probieren.";
+    return (err && err.message) || "Anmeldung fehlgeschlagen.";
+  }
+
+  $("#loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = ($("#l-email").value || "").trim();
+    var pass = $("#l-pass").value || "";
+    $("#loginErr").textContent = "";
+    if (!email || !pass) {
+      $("#loginErr").textContent = "Bitte E-Mail-Adresse und Passwort eingeben.";
+      return;
+    }
+    var btn = $("#btnLogin");
+    btn.disabled = true;
+    btn.textContent = "Logge ein …";
+    signInWithEmailAndPassword(auth, email, pass)
+      .catch(function (err) {
+        $("#loginErr").textContent = mapAuthError(err);
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.textContent = "Einloggen";
+      });
+  });
+
+  $("#btnLogout").addEventListener("click", function () {
+    signOut(auth).then(function () {
+      toast("Ausgeloggt");
+    });
+  });
+
+  onAuthStateChanged(auth, function (user) {
+    if (user) {
+      $("#authView").hidden = true;
+      $("#appView").hidden = false;
+      $("#userEmail").textContent = user.email || "";
+      $("#loginErr").textContent = "";
+      $("#l-pass").value = "";
+      render();
+      syncFromFirebase(false);
+    } else {
+      items = [];
+      loaded = false;
+      $("#appView").hidden = true;
+      $("#authView").hidden = false;
+      $("#userEmail").textContent = "";
+      closeForm();
+    }
+  });
+
   $("#btnAdd").addEventListener("click", function () { openForm(null); });
   $("#btnCancel").addEventListener("click", closeForm);
 
@@ -877,8 +984,6 @@ const stockDocRef = doc(db, "kartonfinder", "bestand");
 
   /* Start */
   setStandDefault();
-  render();
-  syncFromFirebase(false);
 })();
 </script>
 </body>
