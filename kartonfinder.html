@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statusEl = document.getElementById("fileStatus");
 
   try {
-    const response = await fetch("./daten.json", { cache: "no-store" });
+    const response = await fetch("https://gist.githubusercontent.com/Prexi1201/e38084c1130f2bcb83b804cb99d88804/raw/5d3dff1de6b263133af07ba4533e5e4f718fe337/daten.json", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
