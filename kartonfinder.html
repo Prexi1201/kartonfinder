@@ -251,7 +251,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
   <div class="filebar" id="fileBar">
     <div class="filebar-info">
       <span class="dot" aria-hidden="true"></span>
-      <span id="fileStatus">Verbinde mit GitHub Gist (daten.json) …</span>
+      <span id="fileStatus">Verbinde mit Firebase Firestore …</span>
     </div>
     <button type="button" class="btn sm" id="btnSyncNow">Jetzt neu laden</button>
   </div>
@@ -343,20 +343,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; f
 </div>
 <div class="toast-wrap"><div class="toast" id="toast" role="status"></div></div>
 
-<script>
-(function () {
-  var $ = function (s) { return document.querySelector(s); };
-  var LS_KEY = "kartonfinder-v1";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  /* ---------- GitHub Gist Konfiguration ---------- */
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyB8OzBJh_TyZJMT54onPYKBwgPblfLpx60",
   authDomain: "dashboard-47fe5.firebaseapp.com",
@@ -367,9 +357,19 @@ const firebaseConfig = {
   measurementId: "G-7YYKEDSDGF"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+const db = getFirestore(app);
+const stockDocRef = doc(db, "kartonfinder", "bestand");
+
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var LS_KEY = "kartonfinder-v1";
+  var items = [];
+  var loaded = false;
+  var editingId = null;
+  var pendingDelete = null;
+  var pendingTimer = null;
+  var writeQueue = Promise.resolve();
 
   /* ---------- Helfer ---------- */
   function esc(s) {
@@ -521,7 +521,7 @@ const analytics = getAnalytics(app);
     return ps[0] <= bs[0] + 1e-9 && ps[1] <= bs[1] + 1e-9 && ps[2] <= bs[2] + 1e-9;
   }
 
-  /* ---------- Speicherung (LocalStorage + GitHub Gist) ---------- */
+  /* ---------- Speicherung (LocalStorage + Firebase Firestore) ---------- */
   function saveLocal() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(items)); } catch (e) {}
   }
@@ -553,26 +553,17 @@ const analytics = getAnalytics(app);
     bar.classList.toggle("connected", !!ok);
     $("#fileStatus").textContent = text;
   }
-  function syncFromGist(showToast) {
-    setStatus(false, "Lade Daten aus GitHub Gist (" + GIST_FILE + ") …");
-    var headers = { "Accept": "application/vnd.github+json" };
-    if (GITHUB_TOKEN) headers["Authorization"] = "Bearer " + GITHUB_TOKEN;
-    return fetch(GIST_API_URL + "?t=" + Date.now(), { headers: headers })
-      .then(function (res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        var f = data && data.files && data.files[GIST_FILE];
-        if (!f || typeof f.content !== "string") throw new Error("Datei nicht im Gist");
-        var parsed = JSON.parse(f.content);
-        if (!Array.isArray(parsed)) throw new Error("Ungültiges JSON-Format");
-        items = parsed.map(normalizeItem).filter(Boolean);
+  function syncFromFirebase(showToast) {
+    setStatus(false, "Lade Daten aus Firebase Firestore …");
+    return getDoc(stockDocRef)
+      .then(function (snap) {
+        var rawList = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : [];
+        items = rawList.map(normalizeItem).filter(Boolean);
         loaded = true;
         saveLocal();
-        setStatus(true, "Verbunden mit GitHub Gist (" + GIST_FILE + ")");
+        setStatus(true, "Verbunden mit Firebase Firestore (kartonfinder/bestand)");
         render();
-        if (showToast) toast("Bestand aus Gist aktualisiert");
+        if (showToast) toast("Bestand aus Firebase aktualisiert");
       })
       .catch(function (err) {
         var local = loadLocal();
@@ -580,33 +571,23 @@ const analytics = getAnalytics(app);
           items = local.map(normalizeItem).filter(Boolean);
           loaded = true;
         }
-        setStatus(false, "Gist offline (" + err.message + ") – lokaler Stand aktiv");
+        setStatus(false, "Firebase offline (" + err.message + ") – lokaler Stand aktiv");
         render();
-        if (showToast) toast("Gist nicht erreichbar: " + err.message);
+        if (showToast) toast("Firebase nicht erreichbar: " + err.message);
       });
   }
   function persistItems() {
     saveLocal();
     renderStats();
     writeQueue = writeQueue.then(function () {
-      var headers = {
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json"
-      };
-      if (GITHUB_TOKEN) headers["Authorization"] = "Bearer " + GITHUB_TOKEN;
-      var body = { files: {} };
-      body.files[GIST_FILE] = { content: JSON.stringify(items, null, 2) };
-      return fetch(GIST_API_URL, {
-        method: "PATCH",
-        headers: headers,
-        body: JSON.stringify(body)
-      }).then(function (res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        setStatus(true, "Gespeichert in GitHub Gist (" + GIST_FILE + ")");
-      }).catch(function (err) {
-        setStatus(false, "Lokaler Stand gespeichert (Gist-Fehler: " + err.message + ")");
-        toast("Gist-Speichern fehlgeschlagen: " + err.message);
-      });
+      return setDoc(stockDocRef, { items: items, updatedAt: Date.now() })
+        .then(function () {
+          setStatus(true, "Gespeichert in Firebase Firestore (kartonfinder/bestand)");
+        })
+        .catch(function (err) {
+          setStatus(false, "Lokaler Stand gespeichert (Firestore-Fehler: " + err.message + ")");
+          toast("Firebase-Speichern fehlgeschlagen: " + err.message);
+        });
     });
     return writeQueue;
   }
@@ -892,12 +873,12 @@ const analytics = getAnalytics(app);
   });
   $("#s-q").addEventListener("input", renderStock);
   $("#s-sort").addEventListener("change", renderStock);
-  $("#btnSyncNow").addEventListener("click", function () { syncFromGist(true); });
+  $("#btnSyncNow").addEventListener("click", function () { syncFromFirebase(true); });
 
   /* Start */
   setStandDefault();
   render();
-  syncFromGist(false);
+  syncFromFirebase(false);
 })();
 </script>
 </body>
